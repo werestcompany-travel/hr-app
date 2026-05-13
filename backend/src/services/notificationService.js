@@ -1,7 +1,6 @@
 import { lineClient } from '../config/line.js';
 import { supabase } from '../config/supabase.js';
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale/th';
+import { format, differenceInCalendarDays } from 'date-fns';
 
 // ── Notify manager of a new request ─────────────────────────────────────────
 export async function notifyManager(managerId, requestId, requestType) {
@@ -14,12 +13,20 @@ export async function notifyManager(managerId, requestId, requestType) {
   const table = requestType === 'leave' ? 'leave_requests' : 'ot_requests';
   const { data: req } = await supabase
     .from(table)
-    .select('*, users!user_id(name, department)')
+    .select('*, users!user_id(id, name, department)')
     .eq('id', requestId)
     .single();
 
+  // Fetch year-to-date leave stats for leave requests
+  let leaveStats = null;
+  if (requestType === 'leave' && req?.users?.id) {
+    leaveStats = await fetchLeaveStats(req.users.id);
+  }
+
+  const flex = buildApprovalFlex(req, requestType, leaveStats);
+
   if (mgr?.line_user_id) {
-    await lineClient.pushMessage(mgr.line_user_id, buildApprovalFlex(req, requestType));
+    await lineClient.pushMessage(mgr.line_user_id, flex);
     return;
   }
 
@@ -30,7 +37,6 @@ export async function notifyManager(managerId, requestId, requestType) {
     .select('line_user_id')
     .eq('role', 'hr_admin');
 
-  const flex = buildApprovalFlex(req, requestType);
   for (const admin of admins || []) {
     if (admin.line_user_id) {
       await lineClient.pushMessage(admin.line_user_id, flex).catch(() => {});
@@ -38,26 +44,84 @@ export async function notifyManager(managerId, requestId, requestType) {
   }
 }
 
-function buildApprovalFlex(req, requestType) {
+async function fetchLeaveStats(userId) {
+  const year = new Date().getFullYear();
+  const { data: rows } = await supabase
+    .from('leave_requests')
+    .select('type, start_date, end_date')
+    .eq('user_id', userId)
+    .eq('status', 'approved')
+    .gte('start_date', `${year}-01-01`)
+    .lte('start_date', `${year}-12-31`);
+
+  const stats = { sick: { count: 0, days: 0 }, vacation: { count: 0, days: 0 }, emergency: { count: 0, days: 0 } };
+  for (const r of rows || []) {
+    const key = r.type === 'vacation' ? 'vacation' : r.type === 'emergency' ? 'emergency' : 'sick';
+    const days = differenceInCalendarDays(new Date(r.end_date), new Date(r.start_date)) + 1;
+    stats[key].count += 1;
+    stats[key].days += days;
+  }
+  return stats;
+}
+
+function buildApprovalFlex(req, requestType, leaveStats) {
   const employee = req.users;
   const isLeave = requestType === 'leave';
 
-  const details = isLeave
+  // ── Detail rows ────────────────────────────────────────────────────────────
+  const detailRows = isLeave
     ? [
-        { label: 'Type',       value: capitalise(req.type) },
-        { label: 'From',       value: req.start_date },
-        { label: 'To',         value: req.end_date },
-        { label: 'Reason',     value: req.reason || '—' },
+        { label: 'ประเภท', value: leaveTypeLabel(req.type) },
+        { label: 'วันที่เริ่ม', value: req.start_date },
+        { label: 'วันที่สิ้นสุด', value: req.end_date === req.start_date ? '(วันเดียว)' : req.end_date },
+        { label: 'จำนวนวัน', value: `${differenceInCalendarDays(new Date(req.end_date), new Date(req.start_date)) + 1} วัน` },
+        { label: 'เหตุผล', value: req.reason || '—' },
       ]
     : [
-        { label: 'Date',       value: req.date },
-        { label: 'Hours',      value: String(req.hours) },
-        { label: 'Reason',     value: req.reason || '—' },
+        { label: 'วันที่', value: req.date },
+        { label: 'ชั่วโมง OT', value: `${req.hours} ชั่วโมง` },
+        { label: 'เหตุผล', value: req.reason || '—' },
       ];
+
+  const detailContents = detailRows.map(({ label, value }) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: label, color: '#888888', size: 'sm', flex: 3 },
+      { type: 'text', text: value, color: '#333333', size: 'sm', flex: 5, wrap: true },
+    ],
+  }));
+
+  // ── Leave stats section (leave requests only) ──────────────────────────────
+  const statsSection = isLeave && leaveStats ? [
+    { type: 'separator', margin: 'md' },
+    {
+      type: 'text',
+      text: `สถิติลาปีนี้ (${new Date().getFullYear()})`,
+      weight: 'bold',
+      size: 'sm',
+      color: '#1B4332',
+      margin: 'md',
+    },
+    {
+      type: 'box',
+      layout: 'vertical',
+      margin: 'sm',
+      spacing: 'xs',
+      contents: [
+        statRow('ลาป่วย', leaveStats.sick),
+        statRow('ลากิจ', leaveStats.emergency),
+        statRow('พักร้อน', leaveStats.vacation),
+      ],
+    },
+  ] : [];
+
+  const titleText = isLeave ? 'ใบลาใหม่รออนุมัติ' : 'คำขอ OT ใหม่รออนุมัติ';
+  const stepId = req.id;
 
   return {
     type: 'flex',
-    altText: `New ${requestType} request from ${employee.name}`,
+    altText: `${titleText} — ${employee.name}`,
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -67,16 +131,10 @@ function buildApprovalFlex(req, requestType) {
         backgroundColor: '#1B4332',
         paddingAll: '16px',
         contents: [
+          { type: 'text', text: titleText, color: '#52B788', weight: 'bold', size: 'lg' },
           {
             type: 'text',
-            text: `${requestType.toUpperCase()} REQUEST`,
-            color: '#52B788',
-            weight: 'bold',
-            size: 'xl',
-          },
-          {
-            type: 'text',
-            text: `From: ${employee.name}${employee.department ? ' · ' + employee.department : ''}`,
+            text: `${employee.name}${employee.department ? ' · ' + employee.department : ''}`,
             color: '#B7E4C7',
             size: 'sm',
             margin: 'sm',
@@ -86,48 +144,75 @@ function buildApprovalFlex(req, requestType) {
       body: {
         type: 'box',
         layout: 'vertical',
-        spacing: 'md',
+        spacing: 'sm',
         paddingAll: '16px',
-        contents: details.map(({ label, value }) => ({
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            { type: 'text', text: label, color: '#888888', size: 'sm', flex: 2 },
-            { type: 'text', text: value, color: '#333333', size: 'sm', flex: 4, wrap: true },
-          ],
-        })),
+        contents: [
+          ...detailContents,
+          ...statsSection,
+        ],
       },
       footer: {
         type: 'box',
-        layout: 'horizontal',
+        layout: 'vertical',
         spacing: 'sm',
         paddingAll: '12px',
         contents: [
           {
-            type: 'button',
-            style: 'primary',
-            color: '#52B788',
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '✓ Approve',
-              data: `action=approve&stepId=${req.id}&type=${requestType}`,
-            },
-          },
-          {
-            type: 'button',
-            style: 'secondary',
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '✗ Reject',
-              data: `action=reject&stepId=${req.id}&type=${requestType}`,
-            },
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#1B4332',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: 'อนุมัติ',
+                  data: `action=approve&stepId=${stepId}&type=${requestType}`,
+                  displayText: 'อนุมัติ',
+                },
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: 'ปฏิเสธ',
+                  data: `action=reject&stepId=${stepId}&type=${requestType}`,
+                  displayText: 'ปฏิเสธ',
+                },
+              },
+            ],
           },
         ],
       },
     },
   };
+}
+
+function statRow(label, stat) {
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: label, color: '#666666', size: 'xs', flex: 3 },
+      {
+        type: 'text',
+        text: `${stat.count} ครั้ง / ${stat.days} วัน`,
+        color: '#333333',
+        size: 'xs',
+        flex: 5,
+      },
+    ],
+  };
+}
+
+function leaveTypeLabel(type) {
+  const map = { sick: 'ลาป่วย', vacation: 'พักร้อน', emergency: 'ลากิจ', other: 'ลาอื่นๆ' };
+  return map[type] || type;
 }
 
 // ── Notify employee of approval decision ─────────────────────────────────────
@@ -146,9 +231,9 @@ export async function notifyEmployee(userId, status, rejectReason, approverId) {
 
   let text;
   if (status === 'approved') {
-    text = `✅ Your request has been APPROVED\n\nApproved by: ${approver?.name || 'Manager'}\nDate: ${now}`;
+    text = `คำขอของคุณได้รับการ "อนุมัติ" แล้ว\n\nอนุมัติโดย: ${approver?.name || 'ผู้จัดการ'}\nวันที่: ${now}`;
   } else {
-    text = `❌ Your request has been REJECTED\n\nRejected by: ${approver?.name || 'Manager'}\nDate: ${now}\nReason: ${rejectReason || '—'}`;
+    text = `คำขอของคุณถูก "ปฏิเสธ"\n\nปฏิเสธโดย: ${approver?.name || 'ผู้จัดการ'}\nวันที่: ${now}\nเหตุผล: ${rejectReason || '—'}`;
   }
 
   await lineClient.pushMessage(emp.line_user_id, { type: 'text', text });
@@ -165,20 +250,18 @@ export async function notifyHRAdmin(stepId, requestType) {
 
   if (!hr?.line_user_id) return;
 
+  const typeLabel = requestType === 'leave' ? 'ใบลา' : 'OT';
   await lineClient.pushMessage(hr.line_user_id, {
     type: 'text',
-    text: `⚠️ Escalation Alert\n\nA ${requestType} request (ID: ${stepId}) has been pending for over 24 hours without manager response.\n\nPlease review via the admin dashboard.`,
+    text: `แจ้งเตือน: คำขอ${typeLabel} (ID: ${stepId}) ยังไม่ได้รับการตอบสนองจากผู้จัดการเกิน 24 ชั่วโมง\n\nกรุณาตรวจสอบผ่าน Admin Dashboard`,
   });
 }
 
 // ── Reminder to manager ───────────────────────────────────────────────────────
 export async function remindManager(managerLineUserId, requestType) {
+  const typeLabel = requestType === 'leave' ? 'ใบลา' : 'OT';
   await lineClient.pushMessage(managerLineUserId, {
     type: 'text',
-    text: `⏰ Reminder: You have a pending ${requestType} request awaiting your approval.\n\nPlease review it in your LINE messages.`,
+    text: `แจ้งเตือน: มีคำขอ${typeLabel}รออนุมัติจากคุณอยู่\n\nกรุณาตรวจสอบในข้อความ LINE ของคุณ`,
   });
-}
-
-function capitalise(str) {
-  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
 }
