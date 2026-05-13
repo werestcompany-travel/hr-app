@@ -31,10 +31,10 @@ export default function Employees() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="p-6 space-y-4 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Employees</h1>
+        <h1 className="text-xl font-bold text-gray-800">Employees</h1>
         <button
           onClick={() => setModal('add')}
           className="px-4 py-2 rounded-xl text-white text-sm font-semibold transition-colors"

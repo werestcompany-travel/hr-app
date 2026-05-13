@@ -47,8 +47,8 @@ export default function LeaveReport() {
   const departments = [...new Set(requests.map(r => r.users?.department).filter(Boolean))];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Leave Report</h1>
+    <div className="p-6 space-y-6 max-w-7xl">
+      <h1 className="text-xl font-bold text-gray-800">Leave Report</h1>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-3 items-end">

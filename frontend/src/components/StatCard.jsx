@@ -1,24 +1,18 @@
-const COLOR_STYLES = {
-  green:  { bg: 'bg-green-50',  text: 'text-green-700',  icon: 'bg-green-100' },
-  yellow: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: 'bg-yellow-100' },
-  blue:   { bg: 'bg-blue-50',   text: 'text-blue-700',   icon: 'bg-blue-100' },
-  teal:   { bg: 'bg-teal-50',   text: 'text-teal-700',   icon: 'bg-teal-100' },
-};
-
-export default function StatCard({ label, value, color = 'green', icon }) {
-  const s = COLOR_STYLES[color] || COLOR_STYLES.green;
+export default function StatCard({ label, value, icon, accent = '#52B788', sub }) {
   return (
-    <div className={`${s.bg} rounded-xl p-5 flex items-center gap-4`}>
-      {icon && (
-        <div className={`${s.icon} w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0`}>
-          {icon}
-        </div>
-      )}
-      <div>
-        <p className="text-sm text-gray-500 font-medium">{label}</p>
-        <p className={`text-3xl font-bold ${s.text}`}>
-          {value ?? <span className="text-gray-300 text-xl">—</span>}
+    <div className="bg-white rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+      <div
+        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: accent + '1A' }}
+      >
+        <span style={{ color: accent }}>{icon}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="text-2xl font-bold text-gray-800 leading-none">
+          {value ?? <span className="text-gray-300">—</span>}
         </p>
+        <p className="text-sm text-gray-500 mt-1 truncate">{label}</p>
+        {sub && <p className="text-xs mt-0.5" style={{ color: accent }}>{sub}</p>}
       </div>
     </div>
   );

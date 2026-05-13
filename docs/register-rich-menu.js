@@ -51,7 +51,7 @@ const areas = [
   },
   {
     bounds: { x: 833,  y: 843, width: 834,  height: 843 },
-    action: { type: 'message', text: 'Contact HR' },
+    action: { type: 'uri', uri: process.env.FRONTEND_URL || 'https://hr-app-admin-nine.vercel.app' },
   },
   {
     bounds: { x: 1667, y: 843, width: 833,  height: 843 },

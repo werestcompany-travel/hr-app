@@ -11,8 +11,6 @@ export async function notifyManager(managerId, requestId, requestType) {
     .eq('id', managerId)
     .single();
 
-  if (!mgr?.line_user_id) return; // manager has no LINE account
-
   const table = requestType === 'leave' ? 'leave_requests' : 'ot_requests';
   const { data: req } = await supabase
     .from(table)
@@ -20,7 +18,24 @@ export async function notifyManager(managerId, requestId, requestType) {
     .eq('id', requestId)
     .single();
 
-  await lineClient.pushMessage(mgr.line_user_id, buildApprovalFlex(req, requestType));
+  if (mgr?.line_user_id) {
+    await lineClient.pushMessage(mgr.line_user_id, buildApprovalFlex(req, requestType));
+    return;
+  }
+
+  // Manager has no LINE account — fall back to notifying all HR admins
+  console.warn(`[notify] Manager ${managerId} has no LINE account. Falling back to HR admin.`);
+  const { data: admins } = await supabase
+    .from('users')
+    .select('line_user_id')
+    .eq('role', 'hr_admin');
+
+  const flex = buildApprovalFlex(req, requestType);
+  for (const admin of admins || []) {
+    if (admin.line_user_id) {
+      await lineClient.pushMessage(admin.line_user_id, flex).catch(() => {});
+    }
+  }
 }
 
 function buildApprovalFlex(req, requestType) {

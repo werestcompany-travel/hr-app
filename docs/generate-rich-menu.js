@@ -47,7 +47,7 @@ const buttons = [
   { col: 2, row: 0, label: 'History',             subtitle: 'View your requests',     icon: drawHistory       },
   // Row 1
   { col: 0, row: 1, label: 'Leave Balance',       subtitle: 'Remaining days',         icon: drawPieChart      },
-  { col: 1, row: 1, label: 'Contact HR',          subtitle: 'Get in touch',           icon: drawHeadset       },
+  { col: 1, row: 1, label: 'Manager Portal',       subtitle: 'Admin dashboard',        icon: drawHeadset       },
   { col: 2, row: 1, label: 'Announcement',        subtitle: 'Latest updates',         icon: drawMegaphone, badge: 'Updates' },
 ];
 

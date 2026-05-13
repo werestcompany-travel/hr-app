@@ -121,7 +121,7 @@ async function deductLeaveBalance(requestId, userId) {
   const field = req.type === 'vacation' ? 'leave_balance_vacation' : 'leave_balance_sick';
 
   await supabase.rpc('decrement_leave', {
-    p_user_id: userId,
+    user_id: userId,
     field_name: field,
     amount: days,
   });
