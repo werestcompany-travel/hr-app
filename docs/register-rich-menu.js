@@ -16,11 +16,11 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const TOKEN         = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-const LIFF_LEAVE    = process.env.LIFF_ID_LEAVE;
-const LIFF_OT       = process.env.LIFF_ID_OT;
-const LIFF_HISTORY  = process.env.LIFF_ID_HISTORY;
-const ADMIN_URL     = process.env.FRONTEND_URL || 'https://your-admin.vercel.app';
+const TOKEN               = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const LIFF_LEAVE          = process.env.LIFF_ID_LEAVE;
+const LIFF_OT             = process.env.LIFF_ID_OT;
+const LIFF_HISTORY        = process.env.LIFF_ID_HISTORY;
+const LIFF_ANNOUNCEMENTS  = process.env.LIFF_ID_ANNOUNCEMENTS || process.env.LIFF_ID_HISTORY;
 
 if (!TOKEN) {
   console.error('ERROR: LINE_CHANNEL_ACCESS_TOKEN is not set');
@@ -55,7 +55,7 @@ const areas = [
   },
   {
     bounds: { x: 1667, y: 843, width: 833,  height: 843 },
-    action: { type: 'uri', uri: `${ADMIN_URL}/announcements` },
+    action: { type: 'uri', uri: `https://liff.line.me/${LIFF_ANNOUNCEMENTS}` },
   },
 ];
 

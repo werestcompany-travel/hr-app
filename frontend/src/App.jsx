@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import Layout      from './components/Layout';
-import Login       from './pages/Login';
-import Dashboard   from './pages/Dashboard';
-import Employees   from './pages/Employees';
-import LeaveReport from './pages/LeaveReport';
+import Layout        from './components/Layout';
+import Login         from './pages/Login';
+import Dashboard     from './pages/Dashboard';
+import Employees     from './pages/Employees';
+import LeaveReport   from './pages/LeaveReport';
+import Announcements from './pages/Announcements';
 
 function RequireAuth({ children }) {
   const token = useAuthStore(s => s.token);
@@ -27,6 +28,7 @@ export default function App() {
           <Route index          element={<Dashboard />} />
           <Route path="employees"     element={<Employees />} />
           <Route path="reports/leave" element={<LeaveReport />} />
+          <Route path="announcements" element={<Announcements />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

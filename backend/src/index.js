@@ -10,7 +10,8 @@ import otRouter       from './routes/ot.js';
 import approvalRouter from './routes/approval.js';
 import webhookRouter  from './routes/webhook.js';
 import adminRouter    from './routes/admin.js';
-import requestsRouter from './routes/requests.js';
+import requestsRouter      from './routes/requests.js';
+import announcementsRouter from './routes/announcements.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -47,7 +48,8 @@ app.use('/ot',       otRouter);
 app.use('/approval', approvalRouter);
 app.use('/webhook',  webhookRouter);
 app.use('/admin',    adminRouter);
-app.use('/requests', requestsRouter);
+app.use('/requests',      requestsRouter);
+app.use('/announcements', announcementsRouter);
 
 app.use(errorHandler);
 

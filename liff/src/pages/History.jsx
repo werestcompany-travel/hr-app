@@ -13,8 +13,8 @@ const STATUS_STYLES = {
   cancelled:'bg-gray-500/20 text-gray-300 border-gray-500/30',
 };
 
-const TYPE_ICONS = {
-  sick: '🤒', vacation: '🌴', emergency: '🚨', other: '📝', ot: '⏰',
+const TYPE_LABELS = {
+  sick: 'Sick', vacation: 'Vacation', emergency: 'Emergency', other: 'Other', ot: 'OT',
 };
 
 export default function History() {
@@ -87,8 +87,8 @@ function RequestCard({ req }) {
   const step = req.approval_steps?.[0];
 
   const title = isLeave
-    ? `${TYPE_ICONS[req.type] || '📋'} ${capitalise(req.type)} Leave`
-    : `⏰ OT Request`;
+    ? `${TYPE_LABELS[req.type] || capitalise(req.type)} Leave`
+    : 'OT Request';
 
   const dateRange = isLeave
     ? `${req.start_date}${req.end_date !== req.start_date ? ' → ' + req.end_date : ''}`

@@ -2,9 +2,10 @@ import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 const links = [
-  { to: '/',                label: 'Dashboard',    icon: '📊' },
-  { to: '/employees',       label: 'Employees',    icon: '👥' },
-  { to: '/reports/leave',   label: 'Leave Report', icon: '📋' },
+  { to: '/',                label: 'Dashboard',      icon: '▣' },
+  { to: '/employees',       label: 'Employees',      icon: '◉' },
+  { to: '/reports/leave',   label: 'Leave Report',   icon: '▤' },
+  { to: '/announcements',   label: 'Announcements',  icon: '▦' },
 ];
 
 export default function Sidebar() {

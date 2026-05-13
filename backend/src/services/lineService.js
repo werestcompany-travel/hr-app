@@ -36,7 +36,7 @@ async function handleFollow(event) {
 
   await lineClient.replyMessage(event.replyToken, {
     type: 'text',
-    text: `👋 Welcome, ${profile.displayName}!\n\nYou are now connected to the HR System. Use the menu at the bottom to:\n• Submit leave requests\n• Submit OT requests\n• Check your leave balance\n• View request history`,
+    text: `Welcome, ${profile.displayName}!\n\nYou are now connected to the HR System. Use the menu at the bottom to:\n- Submit leave requests\n- Submit OT requests\n- Check your leave balance\n- View request history`,
   });
 }
 
@@ -46,6 +46,10 @@ async function handleTextMessage(event) {
 
   if (text === 'balance' || text === 'leave balance') {
     return await sendLeaveBalance(event);
+  }
+
+  if (text === 'contact hr') {
+    return await sendContactHR(event);
   }
 
   await lineClient.replyMessage(event.replyToken, {
@@ -72,7 +76,7 @@ async function sendLeaveBalance(event) {
 
   await lineClient.replyMessage(event.replyToken, {
     type: 'text',
-    text: `📊 Leave Balance for ${user.name}\n\n🤒 Sick Leave: ${user.leave_balance_sick} days\n🌴 Vacation Leave: ${user.leave_balance_vacation} days`,
+    text: `Leave Balance — ${user.name}\n\nSick Leave: ${user.leave_balance_sick} days\nVacation Leave: ${user.leave_balance_vacation} days`,
   });
 }
 
@@ -90,7 +94,7 @@ async function handlePostback(event) {
       await processApproval(stepId, 'approved');
       await lineClient.replyMessage(event.replyToken, {
         type: 'text',
-        text: '✅ Request approved. The employee has been notified.',
+        text: 'Request approved. The employee has been notified.',
       });
     } catch (err) {
       await lineClient.replyMessage(event.replyToken, {
@@ -110,6 +114,23 @@ async function handlePostback(event) {
     await sendLeaveBalance(event);
     return;
   }
+}
+
+// ── Contact HR ────────────────────────────────────────────────────────────────
+async function sendContactHR(event) {
+  const { data: hrAdmins } = await supabase
+    .from('users')
+    .select('name, email')
+    .eq('role', 'hr_admin');
+
+  const contacts = hrAdmins?.length
+    ? hrAdmins.map(h => `${h.name}${h.email ? ' — ' + h.email : ''}`).join('\n')
+    : 'Please contact your HR department directly.';
+
+  await lineClient.replyMessage(event.replyToken, {
+    type: 'text',
+    text: `HR Contact Information\n\n${contacts}\n\nFor urgent matters, please reach out directly.`,
+  });
 }
 
 // ── Reject: send LIFF link for manager to fill reason ─────────────────────────
