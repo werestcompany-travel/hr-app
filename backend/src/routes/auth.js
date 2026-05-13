@@ -21,7 +21,7 @@ router.post('/line', async (req, res, next) => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         id_token: accessToken,
-        client_id: process.env.LINE_CHANNEL_ID,
+        client_id: process.env.LINE_LOGIN_CHANNEL_ID || process.env.LINE_CHANNEL_ID,
       }),
     });
 
