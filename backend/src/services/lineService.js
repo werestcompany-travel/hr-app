@@ -91,10 +91,38 @@ async function handlePostback(event) {
 
   if (action === 'approve') {
     try {
+      // Fetch step before processing so we can build summary
+      const { data: step } = await supabase
+        .from('approval_steps')
+        .select('request_id, request_type')
+        .eq('id', stepId)
+        .single();
+
       await processApproval(stepId, 'approved');
+
+      // Fetch request details for summary
+      let summary = '';
+      if (step) {
+        const table = step.request_type === 'leave' ? 'leave_requests' : 'ot_requests';
+        const { data: req } = await supabase
+          .from(table)
+          .select('*, users!user_id(name)')
+          .eq('id', step.request_id)
+          .single();
+
+        if (req) {
+          if (step.request_type === 'leave') {
+            const leaveTypeMap = { sick: 'ลาป่วย', vacation: 'พักร้อน', emergency: 'ลากิจ', other: 'ลาอื่นๆ' };
+            summary = `\n\nสรุปรายการที่อนุมัติ\nพนักงาน: ${req.users?.name}\nประเภท: ${leaveTypeMap[req.type] || req.type}\nวันที่: ${req.start_date} → ${req.end_date}\nเหตุผล: ${req.reason || '—'}`;
+          } else {
+            summary = `\n\nสรุปรายการที่อนุมัติ\nพนักงาน: ${req.users?.name}\nวันที่: ${req.date}\nชั่วโมง OT: ${req.hours} ชั่วโมง\nเหตุผล: ${req.reason || '—'}`;
+          }
+        }
+      }
+
       await lineClient.replyMessage(event.replyToken, {
         type: 'text',
-        text: 'Request approved. The employee has been notified.',
+        text: `อนุมัติแล้ว พนักงานได้รับการแจ้งเตือนแล้ว${summary}`,
       });
     } catch (err) {
       await lineClient.replyMessage(event.replyToken, {
