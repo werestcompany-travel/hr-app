@@ -70,14 +70,82 @@ async function sendLeaveBalance(event) {
   if (!user) {
     return lineClient.replyMessage(event.replyToken, {
       type: 'text',
-      text: 'User not found. Please contact HR.',
+      text: 'ไม่พบข้อมูลผู้ใช้ กรุณาติดต่อ HR',
     });
   }
 
+  const sick     = user.leave_balance_sick     ?? 0;
+  const vacation = user.leave_balance_vacation ?? 0;
+
+  const liffId = process.env.LIFF_ID_HISTORY;
+
   await lineClient.replyMessage(event.replyToken, {
-    type: 'text',
-    text: `Leave Balance — ${user.name}\n\nSick Leave: ${user.leave_balance_sick} days\nVacation Leave: ${user.leave_balance_vacation} days`,
+    type: 'flex',
+    altText: `วันลาคงเหลือ — ${user.name}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#1B4332',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: 'วันลาคงเหลือ', color: '#52B788', weight: 'bold', size: 'lg' },
+          { type: 'text', text: user.name, color: '#B7E4C7', size: 'sm', margin: 'sm' },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'md',
+        contents: [
+          balanceRow('ลาป่วย (Sick Leave)',    sick,     '#52B788'),
+          balanceRow('พักร้อน (Vacation)',     vacation, '#3B82F6'),
+        ],
+      },
+      footer: liffId ? {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '12px',
+        contents: [{
+          type: 'button',
+          style: 'primary',
+          color: '#1B4332',
+          height: 'sm',
+          action: {
+            type: 'uri',
+            label: 'ดูรายละเอียด',
+            uri: `https://liff.line.me/${liffId}`,
+          },
+        }],
+      } : undefined,
+    },
   });
+}
+
+function balanceRow(label, days, color) {
+  return {
+    type: 'box',
+    layout: 'horizontal',
+    backgroundColor: color + '1A',
+    cornerRadius: '12px',
+    paddingAll: '12px',
+    contents: [
+      { type: 'text', text: label, color: '#333333', size: 'sm', flex: 5, wrap: true },
+      {
+        type: 'box',
+        layout: 'vertical',
+        flex: 2,
+        alignItems: 'flex-end',
+        contents: [
+          { type: 'text', text: String(days), color, size: 'xxl', weight: 'bold', align: 'end' },
+          { type: 'text', text: 'วันคงเหลือ', color: '#888888', size: 'xxs', align: 'end' },
+        ],
+      },
+    ],
+  };
 }
 
 // ── Postback: approve / reject buttons ────────────────────────────────────────

@@ -142,9 +142,14 @@ export default function LeaveForm() {
           Step {step + 1} of {visibleSteps.length}
         </span>
         {balance && (
-          <span className="text-xs text-[#B7E4C7]">
-            Sick: {balance.leave_balance_sick}d / Vacation: {balance.leave_balance_vacation}d
-          </span>
+          <div className="flex gap-3 text-xs">
+            <span className="text-[#52B788] font-semibold">
+              ลาป่วย <span className="text-white">{balance.leave_balance_sick}</span> วัน
+            </span>
+            <span className="text-[#3B82F6] font-semibold">
+              พักร้อน <span className="text-white">{balance.leave_balance_vacation}</span> วัน
+            </span>
+          </div>
         )}
       </div>
 

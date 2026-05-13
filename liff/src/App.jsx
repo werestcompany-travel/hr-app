@@ -4,6 +4,7 @@ import OTForm        from './pages/OTForm';
 import RejectForm    from './pages/RejectForm';
 import History       from './pages/History';
 import Announcements from './pages/Announcements';
+import Balance       from './pages/Balance';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/reject"        element={<RejectForm />} />
         <Route path="/history"       element={<History />} />
         <Route path="/announcements" element={<Announcements />} />
+        <Route path="/balance"       element={<Balance />} />
         <Route path="*" element={<Navigate to="/leave" replace />} />
       </Routes>
     </BrowserRouter>
