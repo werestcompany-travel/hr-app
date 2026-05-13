@@ -1,7 +1,7 @@
 import { lineClient } from '../config/line.js';
 import { supabase } from '../config/supabase.js';
 import { format } from 'date-fns';
-import { th } from 'date-fns/locale/index.js';
+import { th } from 'date-fns/locale/th';
 
 // ── Notify manager of a new request ─────────────────────────────────────────
 export async function notifyManager(managerId, requestId, requestType) {
