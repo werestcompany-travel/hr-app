@@ -23,7 +23,15 @@ export async function notifyManager(managerId, requestId, requestType) {
     leaveStats = await fetchLeaveStats(req.users.id);
   }
 
-  const flex = buildApprovalFlex(req, requestType, leaveStats);
+  // Fetch the approval step ID (needed for approve/reject postback actions)
+  const { data: step } = await supabase
+    .from('approval_steps')
+    .select('id')
+    .eq('request_id', requestId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  const flex = buildApprovalFlex(req, requestType, leaveStats, step?.id);
 
   if (mgr?.line_user_id) {
     await lineClient.pushMessage(mgr.line_user_id, flex);
@@ -64,7 +72,7 @@ async function fetchLeaveStats(userId) {
   return stats;
 }
 
-function buildApprovalFlex(req, requestType, leaveStats) {
+function buildApprovalFlex(req, requestType, leaveStats, stepId) {
   const employee = req.users;
   const isLeave = requestType === 'leave';
 
@@ -117,7 +125,7 @@ function buildApprovalFlex(req, requestType, leaveStats) {
   ] : [];
 
   const titleText = isLeave ? 'ใบลาใหม่รออนุมัติ' : 'คำขอ OT ใหม่รออนุมัติ';
-  const stepId = req.id;
+  const actionId = stepId || req.id;
 
   return {
     type: 'flex',
@@ -170,7 +178,7 @@ function buildApprovalFlex(req, requestType, leaveStats) {
                 action: {
                   type: 'postback',
                   label: 'อนุมัติ',
-                  data: `action=approve&stepId=${stepId}&type=${requestType}`,
+                  data: `action=approve&stepId=${actionId}&type=${requestType}`,
                   displayText: 'อนุมัติ',
                 },
               },
@@ -181,7 +189,7 @@ function buildApprovalFlex(req, requestType, leaveStats) {
                 action: {
                   type: 'postback',
                   label: 'ปฏิเสธ',
-                  data: `action=reject&stepId=${stepId}&type=${requestType}`,
+                  data: `action=reject&stepId=${actionId}&type=${requestType}`,
                   displayText: 'ปฏิเสธ',
                 },
               },
