@@ -94,8 +94,8 @@ export async function processApproval(stepId, decision, rejectReason = null) {
     .eq('id', step.request_id)
     .single();
 
-  // Notify employee
-  await notifyEmployee(req.user_id, decision, rejectReason, step.approver_id);
+  // Notify employee with request details
+  await notifyEmployee(req.user_id, decision, rejectReason, step.approver_id, step.request_id, step.request_type);
 
   // Deduct leave balance on approval
   if (decision === 'approved' && step.request_type === 'leave') {

@@ -224,27 +224,123 @@ function leaveTypeLabel(type) {
 }
 
 // ── Notify employee of approval decision ─────────────────────────────────────
-export async function notifyEmployee(userId, status, rejectReason, approverId) {
+export async function notifyEmployee(userId, status, rejectReason, approverId, requestId, requestType) {
   const [empResult, approverResult] = await Promise.all([
     supabase.from('users').select('line_user_id').eq('id', userId).single(),
     supabase.from('users').select('name').eq('id', approverId).single(),
   ]);
 
-  const emp = empResult.data;
+  const emp      = empResult.data;
   const approver = approverResult.data;
-
   if (!emp?.line_user_id) return;
 
-  const now = format(new Date(), 'dd/MM/yyyy HH:mm');
-
-  let text;
-  if (status === 'approved') {
-    text = `คำขอของคุณได้รับการ "อนุมัติ" แล้ว\n\nอนุมัติโดย: ${approver?.name || 'ผู้จัดการ'}\nวันที่: ${now}`;
-  } else {
-    text = `คำขอของคุณถูก "ปฏิเสธ"\n\nปฏิเสธโดย: ${approver?.name || 'ผู้จัดการ'}\nวันที่: ${now}\nเหตุผล: ${rejectReason || '—'}`;
+  // Fetch request details
+  let req = null;
+  if (requestId && requestType) {
+    const table = requestType === 'leave' ? 'leave_requests' : 'ot_requests';
+    const { data } = await supabase.from(table).select('*').eq('id', requestId).single();
+    req = data;
   }
 
-  await lineClient.pushMessage(emp.line_user_id, { type: 'text', text });
+  const now = format(new Date(), 'dd/MM/yyyy HH:mm');
+  const isApproved = status === 'approved';
+
+  const leaveTypeMap = { sick: 'ลาป่วย', vacation: 'พักร้อน', emergency: 'ลากิจ', other: 'ลาอื่นๆ' };
+
+  // Build detail rows
+  let details = [];
+  if (req && requestType === 'leave') {
+    details = [
+      { label: 'ประเภท',    value: leaveTypeMap[req.type] || req.type },
+      { label: 'วันที่เริ่ม', value: req.start_date },
+      { label: 'วันที่สิ้นสุด', value: req.end_date },
+      { label: 'จำนวนวัน', value: `${differenceInCalendarDays(new Date(req.end_date), new Date(req.start_date)) + 1} วัน` },
+      { label: 'เหตุผล',    value: req.reason || '—' },
+    ];
+  } else if (req && requestType === 'ot') {
+    details = [
+      { label: 'วันที่',     value: req.date },
+      { label: 'ชั่วโมง OT', value: `${req.hours} ชั่วโมง` },
+      { label: 'เหตุผล',    value: req.reason || '—' },
+    ];
+  }
+
+  const detailContents = details.map(({ label, value }) => ({
+    type: 'box',
+    layout: 'horizontal',
+    contents: [
+      { type: 'text', text: label, color: '#888888', size: 'sm', flex: 3 },
+      { type: 'text', text: value, color: '#333333', size: 'sm', flex: 5, wrap: true },
+    ],
+  }));
+
+  const headerColor = isApproved ? '#1B4332' : '#7F1D1D';
+  const accentColor = isApproved ? '#52B788' : '#EF4444';
+  const statusText  = isApproved ? 'อนุมัติแล้ว' : 'ปฏิเสธแล้ว';
+  const byLabel     = isApproved ? 'อนุมัติโดย' : 'ปฏิเสธโดย';
+
+  const footerContents = [
+    {
+      type: 'box', layout: 'horizontal',
+      contents: [
+        { type: 'text', text: byLabel, color: '#888888', size: 'sm', flex: 3 },
+        { type: 'text', text: approver?.name || 'ผู้จัดการ', color: '#333333', size: 'sm', flex: 5 },
+      ],
+    },
+    {
+      type: 'box', layout: 'horizontal',
+      contents: [
+        { type: 'text', text: 'วันที่',  color: '#888888', size: 'sm', flex: 3 },
+        { type: 'text', text: now,       color: '#333333', size: 'sm', flex: 5 },
+      ],
+    },
+  ];
+
+  if (!isApproved && rejectReason) {
+    footerContents.push({
+      type: 'box', layout: 'horizontal',
+      contents: [
+        { type: 'text', text: 'เหตุผล', color: '#888888', size: 'sm', flex: 3 },
+        { type: 'text', text: rejectReason, color: '#EF4444', size: 'sm', flex: 5, wrap: true },
+      ],
+    });
+  }
+
+  await lineClient.pushMessage(emp.line_user_id, {
+    type: 'flex',
+    altText: `คำขอของคุณ${statusText}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: headerColor,
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: `คำขอของคุณ "${statusText}"`, color: accentColor, weight: 'bold', size: 'lg' },
+          {
+            type: 'text',
+            text: requestType === 'leave' ? 'ใบลาหยุดงาน' : 'คำขอ OT',
+            color: '#B7E4C7',
+            size: 'sm',
+            margin: 'sm',
+          },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        paddingAll: '16px',
+        contents: detailContents.length > 0 ? [
+          ...detailContents,
+          { type: 'separator', margin: 'md' },
+          ...footerContents,
+        ] : footerContents,
+      },
+    },
+  });
 }
 
 // ── Notify HR Admin of escalation ────────────────────────────────────────────
