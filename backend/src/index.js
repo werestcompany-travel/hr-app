@@ -20,8 +20,13 @@ import './jobs/reminderJob.js';
 const app = express();
 
 app.use(helmet());
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.LIFF_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: allowedOrigins.length ? allowedOrigins : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
