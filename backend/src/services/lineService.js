@@ -155,9 +155,8 @@ async function handlePostback(event) {
   const stepId = params.get('stepId');
   const requestType = params.get('type');
 
-  if (!stepId) return;
-
   if (action === 'approve') {
+    if (!stepId) return;
     try {
       await processApproval(stepId, 'approved');
 
@@ -175,6 +174,7 @@ async function handlePostback(event) {
   }
 
   if (action === 'reject') {
+    if (!stepId) return;
     await initiateReject(event, stepId, requestType);
     return;
   }
