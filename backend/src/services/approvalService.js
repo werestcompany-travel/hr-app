@@ -4,25 +4,15 @@ import { differenceInCalendarDays } from 'date-fns';
 
 // ── Create approval step and notify manager ───────────────────────────────────
 export async function createApprovalStep(requestId, requestType, userId) {
-  // Route to the single manager; fall back to HR admin if none exists
-  const { data: manager } = await supabase
+  // Route to manager role first, then fall back to hr_admin
+  const { data: approver } = await supabase
     .from('users')
     .select('id')
-    .eq('role', 'manager')
+    .in('role', ['manager', 'hr_admin'])
     .limit(1)
     .single();
 
-  let approverId = manager?.id;
-
-  if (!approverId) {
-    const { data: hr } = await supabase
-      .from('users')
-      .select('id')
-      .eq('role', 'hr_admin')
-      .limit(1)
-      .single();
-    approverId = hr?.id;
-  }
+  let approverId = approver?.id;
 
   if (!approverId) {
     throw Object.assign(new Error('No manager or HR admin found to route this request'), { status: 500 });
