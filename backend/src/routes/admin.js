@@ -127,12 +127,12 @@ router.get('/requests', ...adminOnly, async (req, res, next) => {
 
     let leaveQuery = supabase
       .from('leave_requests')
-      .select('*, users!user_id(name, department), approval_steps(status, reject_reason, action_at, users!approver_id(name))')
+      .select('*, users!user_id(name, department)')
       .order('created_at', { ascending: false });
 
     let otQuery = supabase
       .from('ot_requests')
-      .select('*, users!user_id(name, department), approval_steps(status, reject_reason, action_at, users!approver_id(name))')
+      .select('*, users!user_id(name, department)')
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -151,7 +151,23 @@ router.get('/requests', ...adminOnly, async (req, res, next) => {
     }
 
     results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    res.json({ requests: results });
+
+    // Fetch approval steps separately (no FK on request_id)
+    const allIds = results.map(r => r.id);
+    let stepsMap = {};
+    if (allIds.length > 0) {
+      const { data: steps } = await supabase
+        .from('approval_steps')
+        .select('*, users!approver_id(name)')
+        .in('request_id', allIds);
+      for (const step of steps || []) {
+        if (!stepsMap[step.request_id]) stepsMap[step.request_id] = [];
+        stepsMap[step.request_id].push(step);
+      }
+    }
+
+    const requests = results.map(r => ({ ...r, approval_steps: stepsMap[r.id] || [] }));
+    res.json({ requests });
   } catch (err) {
     next(err);
   }

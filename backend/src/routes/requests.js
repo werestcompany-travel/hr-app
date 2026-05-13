@@ -5,33 +5,51 @@ import { supabase } from '../config/supabase.js';
 const router = Router();
 
 // ── Employee request history ─────────────────────────────────────────────────
-// Returns both leave and OT requests for the current user, sorted newest first.
 router.get('/history', requireAuth, async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
+    // Fetch leave and OT requests (no approval_steps join — no FK exists)
     const [leaveResult, otResult] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('*, approval_steps(status, reject_reason, action_at, approver_id, users!approver_id(name))')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
       supabase
         .from('ot_requests')
-        .select('*, approval_steps(status, reject_reason, action_at, approver_id, users!approver_id(name))')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
     ]);
 
     const leave = (leaveResult.data || []).map(r => ({ ...r, request_type: 'leave' }));
     const ot    = (otResult.data || []).map(r => ({ ...r, request_type: 'ot' }));
+    const all   = [...leave, ...ot].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    // Merge and sort by created_at descending
-    const all = [...leave, ...ot].sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
+    // Fetch approval steps separately for all request IDs
+    const allIds = all.map(r => r.id);
+    let stepsMap = {};
 
-    res.json({ requests: all });
+    if (allIds.length > 0) {
+      const { data: steps } = await supabase
+        .from('approval_steps')
+        .select('*, users!approver_id(name)')
+        .in('request_id', allIds);
+
+      for (const step of steps || []) {
+        if (!stepsMap[step.request_id]) stepsMap[step.request_id] = [];
+        stepsMap[step.request_id].push(step);
+      }
+    }
+
+    // Attach approval steps to each request
+    const requests = all.map(r => ({
+      ...r,
+      approval_steps: stepsMap[r.id] || [],
+    }));
+
+    res.json({ requests });
   } catch (err) {
     next(err);
   }
