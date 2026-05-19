@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { api } from '../api/client';
+import { useT } from '../hooks/useT';
 
 export default function Announcements() {
+  const t = useT();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [showForm, setShowForm]           = useState(false);
   const [form, setForm]                   = useState({ title: '', content: '', pinned: false });
   const [submitting, setSubmitting]       = useState(false);
 
-  const fetch = () => {
+  const fetchAnnouncements = () => {
     setLoading(true);
     api.get('/announcements')
       .then(r => setAnnouncements(r.data.announcements || []))
@@ -17,7 +19,7 @@ export default function Announcements() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetchAnnouncements(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,52 +29,52 @@ export default function Announcements() {
       await api.post('/announcements', form);
       setForm({ title: '', content: '', pinned: false });
       setShowForm(false);
-      fetch();
+      fetchAnnouncements();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to post announcement');
+      alert(err.response?.data?.error || t.failedPost);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this announcement?')) return;
+    if (!window.confirm(t.deleteConfirm)) return;
     await api.delete(`/announcements/${id}`);
-    fetch();
+    fetchAnnouncements();
   };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-800">Announcements</h1>
+        <h1 className="text-xl font-bold text-gray-800">{t.announcementsTitle}</h1>
         <button
           onClick={() => setShowForm(s => !s)}
           className="px-4 py-2 rounded-lg text-white text-sm font-medium"
           style={{ backgroundColor: '#52B788' }}
         >
-          {showForm ? 'Cancel' : '+ New Announcement'}
+          {showForm ? t.cancel : t.newAnnouncementBtn}
         </button>
       </div>
 
       {/* Create form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-          <h2 className="font-semibold text-gray-700">New Announcement</h2>
+          <h2 className="font-semibold text-gray-700">{t.newAnnouncementTitle}</h2>
           <div className="space-y-1">
-            <label className="text-xs text-gray-500 font-medium">Title</label>
+            <label className="text-xs text-gray-500 font-medium">{t.titleLabel}</label>
             <input
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="Announcement title"
+              placeholder={t.titlePlaceholder}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-gray-500 font-medium">Content</label>
+            <label className="text-xs text-gray-500 font-medium">{t.contentLabel}</label>
             <textarea
               value={form.content}
               onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              placeholder="Write your announcement..."
+              placeholder={t.contentPlaceholder}
               rows={4}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788] resize-none"
             />
@@ -84,7 +86,7 @@ export default function Announcements() {
               onChange={e => setForm(f => ({ ...f, pinned: e.target.checked }))}
               className="w-4 h-4 accent-[#52B788]"
             />
-            <span className="text-sm text-gray-600">Pin to top</span>
+            <span className="text-sm text-gray-600">{t.pinToTop}</span>
           </label>
           <button
             type="submit"
@@ -92,7 +94,7 @@ export default function Announcements() {
             className="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: '#52B788' }}
           >
-            {submitting ? 'Posting...' : 'Post Announcement'}
+            {submitting ? t.posting : t.postAnnouncement}
           </button>
         </form>
       )}
@@ -100,10 +102,10 @@ export default function Announcements() {
       {/* List */}
       <div className="space-y-3">
         {loading ? (
-          <p className="text-gray-400 text-sm">Loading...</p>
+          <p className="text-gray-400 text-sm">{t.loading}</p>
         ) : announcements.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">
-            No announcements yet.
+            {t.noAnnouncements}
           </div>
         ) : (
           announcements.map(a => (
@@ -114,7 +116,7 @@ export default function Announcements() {
                     <h3 className="font-semibold text-gray-800 text-sm">{a.title}</h3>
                     {a.pinned && (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                        Pinned
+                        {t.pinned}
                       </span>
                     )}
                   </div>
@@ -128,7 +130,7 @@ export default function Announcements() {
                   onClick={() => handleDelete(a.id)}
                   className="text-xs text-red-400 hover:text-red-600 shrink-0"
                 >
-                  Delete
+                  {t.delete}
                 </button>
               </div>
             </div>

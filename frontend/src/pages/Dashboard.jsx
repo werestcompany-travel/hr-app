@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useAuthStore } from '../store/authStore';
+import { useT } from '../hooks/useT';
 import { format } from 'date-fns';
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
@@ -26,14 +27,14 @@ const IconCheck = () => (
 );
 
 // ── Status badge ───────────────────────────────────────────────────────────────
-const STATUS = {
-  pending:   { label: 'Pending',   bg: '#FFF8E1', color: '#F59E0B' },
-  approved:  { label: 'Approved',  bg: '#E8F5E9', color: '#22C55E' },
-  rejected:  { label: 'Rejected',  bg: '#FEE2E2', color: '#EF4444' },
-  cancelled: { label: 'Cancelled', bg: '#F3F4F6', color: '#9CA3AF' },
-};
-
 function Badge({ status }) {
+  const t = useT();
+  const STATUS = {
+    pending:   { label: t.statusPending,   bg: '#FFF8E1', color: '#F59E0B' },
+    approved:  { label: t.statusApproved,  bg: '#E8F5E9', color: '#22C55E' },
+    rejected:  { label: t.statusRejected,  bg: '#FEE2E2', color: '#EF4444' },
+    cancelled: { label: t.statusCancelled, bg: '#F3F4F6', color: '#9CA3AF' },
+  };
   const s = STATUS[status] || STATUS.pending;
   return (
     <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
@@ -70,9 +71,15 @@ function StatCard({ label, value, icon, accent }) {
 
 // ── Request row ────────────────────────────────────────────────────────────────
 function RequestRow({ req }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const isLeave = req.request_type === 'leave';
-  const leaveTypeMap = { sick: 'ลาป่วย', vacation: 'พักร้อน', emergency: 'ลากิจ', other: 'ลาอื่นๆ' };
+  const leaveTypeMap = {
+    sick: t.leaveTypeSick,
+    vacation: t.leaveTypeVacation,
+    emergency: t.leaveTypeEmergency,
+    other: t.leaveTypeOther,
+  };
 
   return (
     <>
@@ -102,14 +109,14 @@ function RequestRow({ req }) {
         <tr className="bg-gray-50/80">
           <td colSpan={5} className="px-4 py-3">
             <div className="text-xs text-gray-600 space-y-1">
-              {req.reason && <p><span className="font-medium">เหตุผล:</span> {req.reason}</p>}
+              {req.reason && <p><span className="font-medium">{t.expandReason}:</span> {req.reason}</p>}
               {req.approval_steps?.[0]?.reject_reason && (
-                <p className="text-red-500"><span className="font-medium">ปฏิเสธ:</span> {req.approval_steps[0].reject_reason}</p>
+                <p className="text-red-500"><span className="font-medium">{t.expandRejected}:</span> {req.approval_steps[0].reject_reason}</p>
               )}
               {req.approval_steps?.[0]?.users?.name && (
-                <p><span className="font-medium">ตรวจสอบโดย:</span> {req.approval_steps[0].users.name}</p>
+                <p><span className="font-medium">{t.expandReviewedBy}:</span> {req.approval_steps[0].users.name}</p>
               )}
-              <p><span className="font-medium">ส่งเมื่อ:</span> {format(new Date(req.created_at), 'dd/MM/yyyy HH:mm')}</p>
+              <p><span className="font-medium">{t.expandSubmitDate}:</span> {format(new Date(req.created_at), 'dd/MM/yyyy HH:mm')}</p>
             </div>
           </td>
         </tr>
@@ -120,6 +127,7 @@ function RequestRow({ req }) {
 
 // ── Request table with search ──────────────────────────────────────────────────
 function RequestList({ data, loading }) {
+  const t = useT();
   const [search, setSearch] = useState('');
 
   const filtered = data.filter(r =>
@@ -127,7 +135,7 @@ function RequestList({ data, loading }) {
   );
 
   if (loading) return (
-    <div className="py-16 text-center text-gray-400 text-sm">Loading...</div>
+    <div className="py-16 text-center text-gray-400 text-sm">{t.loading}</div>
   );
 
   return (
@@ -135,23 +143,23 @@ function RequestList({ data, loading }) {
       <div className="px-4 py-3 border-b border-gray-100">
         <input
           type="text"
-          placeholder="ค้นหาพนักงาน..."
+          placeholder={t.searchName}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#52B788]"
         />
       </div>
       {filtered.length === 0 ? (
-        <div className="py-16 text-center text-gray-400 text-sm">ไม่พบรายการ</div>
+        <div className="py-16 text-center text-gray-400 text-sm">{t.noItems}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs text-gray-400 uppercase tracking-wider">
-                <th className="px-4 py-2.5 font-medium">พนักงาน</th>
-                <th className="px-4 py-2.5 font-medium">ประเภท</th>
-                <th className="px-4 py-2.5 font-medium">วันที่</th>
-                <th className="px-4 py-2.5 font-medium">สถานะ</th>
+                <th className="px-4 py-2.5 font-medium">{t.colEmployee}</th>
+                <th className="px-4 py-2.5 font-medium">{t.colType}</th>
+                <th className="px-4 py-2.5 font-medium">{t.colDate}</th>
+                <th className="px-4 py-2.5 font-medium">{t.colStatus}</th>
                 <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
@@ -162,22 +170,22 @@ function RequestList({ data, loading }) {
         </div>
       )}
       <div className="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-50">
-        {filtered.length} รายการ
+        {t.itemCount(filtered.length)}
       </div>
     </div>
   );
 }
 
-// ── Tabs ───────────────────────────────────────────────────────────────────────
-const TABS = [
-  { key: 'pending', label: 'รออนุมัติ', color: '#F59E0B' },
-  { key: 'leave',   label: 'ใบลา',      color: '#52B788' },
-  { key: 'ot',      label: 'OT',        color: '#3B82F6' },
-  { key: 'all',     label: 'ทั้งหมด',   color: '#8B5CF6' },
+// ── Main dashboard ─────────────────────────────────────────────────────────────
+const TAB_KEYS = [
+  { key: 'pending', color: '#F59E0B' },
+  { key: 'leave',   color: '#52B788' },
+  { key: 'ot',      color: '#3B82F6' },
+  { key: 'all',     color: '#8B5CF6' },
 ];
 
-// ── Main dashboard ─────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const t = useT();
   const { user } = useAuthStore();
   const [stats,   setStats]   = useState(null);
   const [allReqs, setAllReqs] = useState([]);
@@ -204,14 +212,19 @@ export default function Dashboard() {
     all:     allReqs,
   };
 
-  const pendingCount = tabData.pending.length;
+  const tabLabels = {
+    pending: t.tabPending,
+    leave: t.tabLeave,
+    ot: t.tabOT,
+    all: t.tabAll,
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-5xl">
       {/* Header */}
       <div>
         <h1 className="text-lg font-bold text-gray-800">
-          สวัสดี, {user?.name || 'Admin'}
+          {t.dashboardGreeting(user?.name || 'Admin')}
         </h1>
         <p className="text-xs text-gray-400 mt-0.5">
           {format(new Date(), 'EEEE, d MMMM yyyy')}
@@ -220,33 +233,33 @@ export default function Dashboard() {
 
       {/* Stat cards — 2×2 grid */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="ใบลารออนุมัติ"      value={stats?.pendingLeave}  icon={<IconClock />}  accent="#F59E0B" />
-        <StatCard label="OT รออนุมัติ"        value={stats?.pendingOT}     icon={<IconBolt />}   accent="#3B82F6" />
-        <StatCard label="พนักงานทั้งหมด"      value={stats?.employees}     icon={<IconUsers />}  accent="#52B788" />
-        <StatCard label="อนุมัติเดือนนี้"     value={stats?.approvedMonth} icon={<IconCheck />}  accent="#8B5CF6" />
+        <StatCard label={t.statPendingLeave}    value={stats?.pendingLeave}  icon={<IconClock />}  accent="#F59E0B" />
+        <StatCard label={t.statPendingOT}       value={stats?.pendingOT}     icon={<IconBolt />}   accent="#3B82F6" />
+        <StatCard label={t.statTotalEmployees}  value={stats?.employees}     icon={<IconUsers />}  accent="#52B788" />
+        <StatCard label={t.statApprovedMonth}   value={stats?.approvedMonth} icon={<IconCheck />}  accent="#8B5CF6" />
       </div>
 
       {/* Tabs + table */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         {/* Tab bar */}
         <div className="flex border-b border-gray-100 overflow-x-auto">
-          {TABS.map(t => {
-            const isActive = tab === t.key;
-            const count = tabData[t.key]?.length;
+          {TAB_KEYS.map(({ key, color }) => {
+            const isActive = tab === key;
+            const count = tabData[key]?.length;
             return (
               <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
+                key={key}
+                onClick={() => setTab(key)}
                 className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0"
                 style={{
-                  color: isActive ? t.color : '#9CA3AF',
-                  borderBottom: isActive ? `2px solid ${t.color}` : '2px solid transparent',
+                  color: isActive ? color : '#9CA3AF',
+                  borderBottom: isActive ? `2px solid ${color}` : '2px solid transparent',
                 }}
               >
-                {t.label}
+                {tabLabels[key]}
                 {count > 0 && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
-                    style={{ backgroundColor: t.color + '1A', color: t.color }}>
+                    style={{ backgroundColor: color + '1A', color }}>
                     {count}
                   </span>
                 )}

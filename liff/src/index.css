@@ -1,20 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --brand-dark:   #1B4332;
-  --brand-mid:    #2D6A4F;
-  --brand-accent: #52B788;
-  --brand-soft:   #B7E4C7;
+  --navy:        #364765;
+  --navy-mid:    #4A5E82;
+  --slate:       #637493;
+  --slate-light: #768DA2;
+  --bg:          #F0F4F8;
+  --card:        #FFFFFF;
+  --border:      #E2E8F2;
+  --text:        #1E2D4A;
+  --text-muted:  #8896B0;
+  --green:       #2DB07A;
+  --green-light: #E6F7F1;
+  --amber:       #F59E0B;
+  --amber-light: #FEF3C7;
+  --red:         #EF4444;
+  --red-light:   #FEE2E2;
 }
 
 body {
-  background-color: var(--brand-dark);
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
   min-height: 100vh;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
   min-height: 100vh;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.5;
 }

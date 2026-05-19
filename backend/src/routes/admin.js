@@ -3,7 +3,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { supabase } from '../config/supabase.js';
 import bcrypt from 'bcryptjs';
 import { getSignedUrl } from '../services/storageService.js';
-import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfMonth, endOfMonth, format, differenceInCalendarDays } from 'date-fns';
 
 const router = Router();
 const adminOnly = [requireAuth, requireRole('hr_admin')];
@@ -13,10 +13,39 @@ router.get('/employees', ...adminOnly, async (req, res, next) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, name, email, role, department, manager_id, leave_balance_sick, leave_balance_vacation, created_at, users!manager_id(name)')
+      .select('id, name, email, role, department, manager_id, line_user_id, leave_balance_sick, leave_balance_vacation, monthly_salary, created_at, users!manager_id(name)')
       .order('name');
     if (error) throw error;
-    res.json({ employees: data });
+
+    // Compute used leave this year for each employee
+    const year = new Date().getFullYear();
+    const { data: usedLeave } = await supabase
+      .from('leave_requests')
+      .select('user_id, type, start_date, end_date')
+      .eq('status', 'approved')
+      .gte('start_date', `${year}-01-01`)
+      .lte('start_date', `${year}-12-31`);
+
+    const usageMap = {};
+    for (const r of usedLeave || []) {
+      if (!usageMap[r.user_id]) usageMap[r.user_id] = { sick: 0, vacation: 0 };
+      const days = differenceInCalendarDays(new Date(r.end_date), new Date(r.start_date)) + 1;
+      if (r.type === 'vacation') usageMap[r.user_id].vacation += days;
+      else if (r.type === 'sick')    usageMap[r.user_id].sick    += days;
+    }
+
+    const employees = (data || []).map(e => {
+      const salary = parseFloat(e.monthly_salary) || 0;
+      return {
+        ...e,
+        used_sick:     usageMap[e.id]?.sick     || 0,
+        used_vacation: usageMap[e.id]?.vacation || 0,
+        daily_rate:  salary > 0 ? parseFloat((salary / 26).toFixed(2))   : null,
+        hourly_rate: salary > 0 ? parseFloat((salary / 26 / 8).toFixed(2)) : null,
+      };
+    });
+
+    res.json({ employees });
   } catch (err) {
     next(err);
   }
@@ -24,16 +53,18 @@ router.get('/employees', ...adminOnly, async (req, res, next) => {
 
 router.post('/employees', ...adminOnly, async (req, res, next) => {
   try {
-    const { name, email, role, department, manager_id, password, leave_balance_sick, leave_balance_vacation } = req.body;
+    const { name, email, role, department, manager_id, password, leave_balance_sick, leave_balance_vacation, monthly_salary, line_user_id } = req.body;
 
     if (!name || !role) {
       return res.status(400).json({ error: 'name and role are required' });
     }
 
-    const insertData = { name, email, role, department, manager_id };
+    const insertData = { name, email, role, department, manager_id: manager_id || null };
 
-    if (leave_balance_sick !== undefined) insertData.leave_balance_sick = leave_balance_sick;
+    if (leave_balance_sick !== undefined)     insertData.leave_balance_sick     = leave_balance_sick;
     if (leave_balance_vacation !== undefined) insertData.leave_balance_vacation = leave_balance_vacation;
+    if (monthly_salary !== undefined)         insertData.monthly_salary         = monthly_salary;
+    if (line_user_id)                         insertData.line_user_id           = line_user_id;
 
     // Hash password for HR admin accounts
     if (role === 'hr_admin') {
@@ -59,16 +90,18 @@ router.post('/employees', ...adminOnly, async (req, res, next) => {
 router.put('/employees/:id', ...adminOnly, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, email, role, department, manager_id, password, leave_balance_sick, leave_balance_vacation } = req.body;
+    const { name, email, role, department, manager_id, password, leave_balance_sick, leave_balance_vacation, monthly_salary, line_user_id } = req.body;
 
     const updates = {};
     if (name !== undefined)                   updates.name = name;
     if (email !== undefined)                  updates.email = email;
     if (role !== undefined)                   updates.role = role;
     if (department !== undefined)             updates.department = department;
-    if (manager_id !== undefined)             updates.manager_id = manager_id;
+    if (manager_id !== undefined)             updates.manager_id = manager_id || null;
     if (leave_balance_sick !== undefined)     updates.leave_balance_sick = leave_balance_sick;
     if (leave_balance_vacation !== undefined) updates.leave_balance_vacation = leave_balance_vacation;
+    if (monthly_salary !== undefined)         updates.monthly_salary = monthly_salary;
+    if (line_user_id !== undefined)           updates.line_user_id = line_user_id || null;
 
     if (password) {
       updates.password_hash = await bcrypt.hash(password, 12);

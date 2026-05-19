@@ -1,24 +1,32 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { api } from '../api/client';
+import { useT } from '../hooks/useT';
 
 export default function EmployeeModal({ employee, managers, onClose, onSaved }) {
+  const t = useT();
   const isEdit = !!employee;
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+  const salaryValue = useWatch({ control, name: 'monthly_salary', defaultValue: 0 });
+  const salary = parseFloat(salaryValue) || 0;
+  const dailyRate  = salary > 0 ? (salary / 26).toFixed(2) : null;
+  const hourlyRate = salary > 0 ? (salary / 26 / 8).toFixed(2) : null;
 
   useEffect(() => {
     if (employee) {
       reset({
-        name:       employee.name,
-        email:      employee.email || '',
-        role:       employee.role,
-        department: employee.department || '',
-        manager_id: employee.manager_id || '',
+        name:           employee.name,
+        email:          employee.email || '',
+        role:           employee.role,
+        department:     employee.department || '',
+        manager_id:     employee.manager_id || '',
+        line_user_id:   employee.line_user_id || '',
         leave_balance_sick:     employee.leave_balance_sick,
         leave_balance_vacation: employee.leave_balance_vacation,
+        monthly_salary: employee.monthly_salary || '',
       });
     }
   }, [employee, reset]);
@@ -47,7 +55,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
           style={{ backgroundColor: '#1B4332' }}>
           <h2 className="text-white font-semibold">
-            {isEdit ? 'Edit Employee' : 'Add Employee'}
+            {isEdit ? t.editEmployeeTitle : t.addEmployeeTitle}
           </h2>
           <button onClick={onClose} className="text-[#B7E4C7] hover:text-white text-xl">✕</button>
         </div>
@@ -59,7 +67,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
 
           {/* Name */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Full Name *</label>
+            <label className="block text-sm font-medium text-gray-700">{t.fullName}</label>
             <input
               {...register('name', { required: 'Name is required' })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
@@ -69,7 +77,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
 
           {/* Email */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700">{t.email}</label>
             <input
               type="email"
               {...register('email')}
@@ -77,21 +85,50 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
             />
           </div>
 
+          {/* LINE User ID */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              {t.lineUserId}
+              <span className="ml-1.5 text-xs font-normal text-gray-400">{t.lineUserIdNote}</span>
+            </label>
+            <div className="relative">
+              <input
+                {...register('line_user_id')}
+                placeholder={t.lineUserIdPlaceholder}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788] pr-24 font-mono"
+              />
+              {/* Connected indicator */}
+              {(() => {
+                const currentId = employee?.line_user_id;
+                if (!currentId) return null;
+                return (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                    {t.lineConnected}
+                  </span>
+                );
+              })()}
+            </div>
+            <p className="text-xs text-gray-400">
+              Starts with <code className="bg-gray-100 px-1 rounded">U</code> followed by 32 hex characters. Found in LINE webhook events or LINE Developer Console.
+            </p>
+          </div>
+
           {/* Role + Department */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Role *</label>
+              <label className="block text-sm font-medium text-gray-700">{t.role}</label>
               <select
                 {...register('role', { required: true })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
               >
-                <option value="employee">Employee</option>
-                <option value="manager">Manager</option>
-                <option value="hr_admin">HR Admin</option>
+                <option value="employee">{t.roleEmployee}</option>
+                <option value="manager">{t.roleManager}</option>
+                <option value="hr_admin">{t.roleHRAdmin}</option>
               </select>
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Department</label>
+              <label className="block text-sm font-medium text-gray-700">{t.department}</label>
               <input
                 {...register('department')}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
@@ -100,23 +137,56 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
           </div>
 
           {/* Manager */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Manager</label>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">{t.manager}</label>
+
+            {/* Current manager badge */}
+            {(() => {
+              const currentManagerId = employee?.manager_id;
+              const currentManager = managers.find(m => m.id === currentManagerId);
+              if (!currentManager) return null;
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+                  <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {currentManager.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-blue-800 truncate">{currentManager.name}</p>
+                    <p className="text-xs text-blue-500 capitalize">{currentManager.role?.replace('_', ' ')}</p>
+                  </div>
+                  <span className="text-xs text-blue-400 flex-shrink-0">{t.manager}</span>
+                </div>
+              );
+            })()}
+
             <select
               {...register('manager_id')}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
             >
-              <option value="">— None —</option>
-              {managers.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
+              <option value="">{t.noneOption}</option>
+              {/* Group: Managers */}
+              {managers.filter(m => m.role === 'manager').length > 0 && (
+                <optgroup label={t.roleManager}>
+                  {managers.filter(m => m.role === 'manager').map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </optgroup>
+              )}
+              {/* Group: HR Admin */}
+              {managers.filter(m => m.role === 'hr_admin').length > 0 && (
+                <optgroup label={t.roleHRAdmin}>
+                  {managers.filter(m => m.role === 'hr_admin').map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
           {/* Leave balances */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Sick Leave Days</label>
+              <label className="block text-sm font-medium text-gray-700">{t.sickLeaveDays}</label>
               <input
                 type="number"
                 min="0"
@@ -125,7 +195,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Vacation Days</label>
+              <label className="block text-sm font-medium text-gray-700">{t.vacationDays}</label>
               <input
                 type="number"
                 min="0"
@@ -135,11 +205,37 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
             </div>
           </div>
 
+          {/* Monthly Salary */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">{t.monthlySalary}</label>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              {...register('monthly_salary')}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
+            />
+            {/* Computed rates */}
+            {dailyRate && (
+              <div className="mt-2 bg-gray-50 rounded-lg px-3 py-2 flex gap-4 text-xs text-gray-600">
+                <span>
+                  <span className="text-gray-400">{t.dailyRate}: </span>
+                  <span className="font-semibold text-gray-700">฿{parseFloat(dailyRate).toLocaleString()}</span>
+                </span>
+                <span>
+                  <span className="text-gray-400">{t.hourlyRate}: </span>
+                  <span className="font-semibold text-gray-700">฿{parseFloat(hourlyRate).toLocaleString()}</span>
+                </span>
+                <span className="text-gray-400 ml-auto">{t.computedRates}</span>
+              </div>
+            )}
+          </div>
+
           {/* Password (new hr_admin only) */}
           {!isEdit && (
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
-                Password <span className="text-gray-400 text-xs">(required for HR Admin role)</span>
+                {t.password} <span className="text-gray-400 text-xs">{t.passwordNote}</span>
               </label>
               <input
                 type="password"
@@ -156,7 +252,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               onClick={onClose}
               className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
             >
-              Cancel
+              {t.cancel}
             </button>
             <button
               type="submit"
@@ -164,7 +260,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 transition-colors"
               style={{ backgroundColor: '#52B788' }}
             >
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Employee'}
+              {saving ? t.saving : isEdit ? t.saveChanges : t.addEmployeeTitle}
             </button>
           </div>
         </form>

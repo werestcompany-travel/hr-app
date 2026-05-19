@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { useLangStore } from '../store/langStore';
 
 export default function Layout() {
   const [open, setOpen] = useState(true);
+  const { lang, setLang } = useLangStore();
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: '#F0F4F8' }}>
@@ -19,11 +21,33 @@ export default function Layout() {
             className="p-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-500"
             aria-label="Toggle sidebar"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            {open ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            )}
           </button>
           <span className="text-sm font-semibold text-gray-700">HR System</span>
+          <div className="ml-auto flex items-center rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+            <button
+              onClick={() => setLang('th')}
+              className="px-3 py-1.5 transition-colors"
+              style={lang === 'th' ? { backgroundColor: '#1B4332', color: '#fff' } : { color: '#9CA3AF' }}
+            >
+              TH
+            </button>
+            <button
+              onClick={() => setLang('en')}
+              className="px-3 py-1.5 transition-colors"
+              style={lang === 'en' ? { backgroundColor: '#1B4332', color: '#fff' } : { color: '#9CA3AF' }}
+            >
+              EN
+            </button>
+          </div>
         </div>
         <Outlet />
       </main>

@@ -1,19 +1,30 @@
 import { supabase } from '../config/supabase.js';
-import { notifyManager, notifyEmployee } from './notificationService.js';
+import { notifyManager, notifyEmployee, notifyTeam } from './notificationService.js';
 import { differenceInCalendarDays } from 'date-fns';
 
 // ── Create approval step and notify manager ───────────────────────────────────
 export async function createApprovalStep(requestId, requestType, userId) {
-  // Prefer manager role; fall back to hr_admin
-  const { data: manager } = await supabase
+  // 1. Use the employee's assigned manager_id first
+  const { data: requester } = await supabase
     .from('users')
-    .select('id')
-    .eq('role', 'manager')
-    .limit(1)
-    .maybeSingle();
+    .select('manager_id')
+    .eq('id', userId)
+    .single();
 
-  let approverId = manager?.id;
+  let approverId = requester?.manager_id || null;
 
+  // 2. Fall back: any user with role 'manager'
+  if (!approverId) {
+    const { data: anyMgr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'manager')
+      .limit(1)
+      .maybeSingle();
+    approverId = anyMgr?.id || null;
+  }
+
+  // 3. Final fall back: hr_admin
   if (!approverId) {
     const { data: hr } = await supabase
       .from('users')
@@ -21,7 +32,7 @@ export async function createApprovalStep(requestId, requestType, userId) {
       .eq('role', 'hr_admin')
       .limit(1)
       .maybeSingle();
-    approverId = hr?.id;
+    approverId = hr?.id || null;
   }
 
   if (!approverId) {
@@ -97,9 +108,11 @@ export async function processApproval(stepId, decision, rejectReason = null) {
   // Notify employee with request details
   await notifyEmployee(req.user_id, decision, rejectReason, step.approver_id, step.request_id, step.request_type);
 
-  // Deduct leave balance on approval
+  // Deduct leave balance and notify team on approval
   if (decision === 'approved' && step.request_type === 'leave') {
     await deductLeaveBalance(step.request_id, req.user_id);
+    // Notify teammates that someone will be absent
+    notifyTeam(req.user_id, step.request_id).catch(() => {});
   }
 
   return { ok: true };

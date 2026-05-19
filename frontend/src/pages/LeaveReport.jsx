@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { api } from '../api/client';
+import { useT } from '../hooks/useT';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 const STATUS_STYLES = {
@@ -12,6 +13,7 @@ const STATUS_STYLES = {
 };
 
 export default function LeaveReport() {
+  const t = useT();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [filters, setFilters]   = useState({
@@ -34,7 +36,6 @@ export default function LeaveReport() {
 
   useEffect(() => { fetchReport(); }, []);
 
-  // Chart data: group by leave type
   const chartData = useMemo(() => {
     const counts = {};
     requests.forEach(r => {
@@ -48,39 +49,39 @@ export default function LeaveReport() {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
-      <h1 className="text-xl font-bold text-gray-800">Leave Report</h1>
+      <h1 className="text-xl font-bold text-gray-800">{t.leaveReportTitle}</h1>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
-          <label className="block text-xs text-gray-500 font-medium">From</label>
+          <label className="block text-xs text-gray-500 font-medium">{t.from}</label>
           <input type="date" value={filters.from}
             onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs text-gray-500 font-medium">To</label>
+          <label className="block text-xs text-gray-500 font-medium">{t.to}</label>
           <input type="date" value={filters.to}
             onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
         </div>
         <div className="space-y-1">
-          <label className="block text-xs text-gray-500 font-medium">Status</label>
+          <label className="block text-xs text-gray-500 font-medium">{t.status}</label>
           <select value={filters.status}
             onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
+            <option value="">{t.allStatus}</option>
+            <option value="pending">{t.pending}</option>
+            <option value="approved">{t.approved}</option>
+            <option value="rejected">{t.rejected}</option>
           </select>
         </div>
         <div className="space-y-1">
-          <label className="block text-xs text-gray-500 font-medium">Department</label>
+          <label className="block text-xs text-gray-500 font-medium">{t.colDepartment}</label>
           <select value={filters.department}
             onChange={e => setFilters(f => ({ ...f, department: e.target.value }))}
             className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
-            <option value="">All</option>
+            <option value="">{t.allStatus}</option>
             {departments.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
@@ -88,14 +89,14 @@ export default function LeaveReport() {
           onClick={fetchReport}
           className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
           style={{ backgroundColor: '#52B788' }}>
-          Apply
+          {t.apply}
         </button>
       </div>
 
       {/* Chart */}
       {chartData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Requests by Leave Type</h2>
+          <h2 className="text-sm font-semibold text-gray-700 mb-4">{t.chartTitle}</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -111,28 +112,28 @@ export default function LeaveReport() {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Leave Requests ({requests.length})</h2>
+          <h2 className="font-semibold text-gray-800">{t.leaveRequestsTitle(requests.length)}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
-                <th className="px-5 py-3">Employee</th>
-                <th className="px-5 py-3">Type</th>
-                <th className="px-5 py-3">Start</th>
-                <th className="px-5 py-3">End</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Rejection Reason</th>
+                <th className="px-5 py-3">{t.colEmployee}</th>
+                <th className="px-5 py-3">{t.colType}</th>
+                <th className="px-5 py-3">{t.colStart}</th>
+                <th className="px-5 py-3">{t.colEnd}</th>
+                <th className="px-5 py-3">{t.colStatus}</th>
+                <th className="px-5 py-3">{t.colRejectionReason}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">Loading...</td>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">{t.loading}</td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">No requests found.</td>
+                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">{t.noRequests}</td>
                 </tr>
               ) : (
                 requests.map(req => (

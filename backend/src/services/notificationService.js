@@ -361,6 +361,101 @@ export async function notifyHRAdmin(stepId, requestType) {
   });
 }
 
+// ── Notify team when leave is approved ───────────────────────────────────────
+export async function notifyTeam(requesterId, requestId) {
+  try {
+    const [requesterRes, reqRes] = await Promise.all([
+      supabase.from('users').select('name, manager_id, department').eq('id', requesterId).single(),
+      supabase.from('leave_requests').select('type, start_date, end_date').eq('id', requestId).single(),
+    ]);
+
+    const requester = requesterRes.data;
+    const req       = reqRes.data;
+    if (!requester || !req) return;
+
+    // Find teammates: same manager_id (excluding the requester themselves)
+    let teamQuery = supabase
+      .from('users')
+      .select('line_user_id, name')
+      .neq('id', requesterId)
+      .not('line_user_id', 'is', null);
+
+    if (requester.manager_id) {
+      teamQuery = teamQuery.eq('manager_id', requester.manager_id);
+    } else if (requester.department) {
+      teamQuery = teamQuery.eq('department', requester.department);
+    } else {
+      return; // no way to find team
+    }
+
+    const { data: teammates } = await teamQuery;
+    if (!teammates?.length) return;
+
+    const typeMap  = { sick: 'ลาป่วย', vacation: 'พักร้อน', emergency: 'ลากิจ', other: 'ลาอื่นๆ' };
+    const days     = differenceInCalendarDays(new Date(req.end_date), new Date(req.start_date)) + 1;
+    const dateText = req.start_date === req.end_date
+      ? req.start_date
+      : `${req.start_date} — ${req.end_date}`;
+
+    const message = {
+      type: 'flex',
+      altText: `${requester.name} จะ${typeMap[req.type] || req.type} ${dateText}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#2D6A4F',
+          paddingAll: '14px',
+          contents: [
+            { type: 'text', text: '📅 แจ้งเตือนทีม', color: '#52B788', weight: 'bold', size: 'md' },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '14px',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: requester.name, weight: 'bold', color: '#1B4332', size: 'md' },
+            {
+              type: 'text',
+              text: `จะ${typeMap[req.type] || req.type} (ได้รับการอนุมัติแล้ว)`,
+              color: '#555555',
+              size: 'sm',
+              margin: 'xs',
+            },
+            { type: 'separator', margin: 'sm' },
+            {
+              type: 'box', layout: 'horizontal', margin: 'sm',
+              contents: [
+                { type: 'text', text: 'วันที่',   color: '#888888', size: 'sm', flex: 3 },
+                { type: 'text', text: dateText,   color: '#333333', size: 'sm', flex: 5, wrap: true },
+              ],
+            },
+            {
+              type: 'box', layout: 'horizontal',
+              contents: [
+                { type: 'text', text: 'จำนวน',  color: '#888888', size: 'sm', flex: 3 },
+                { type: 'text', text: `${days} วัน`, color: '#333333', size: 'sm', flex: 5 },
+              ],
+            },
+          ],
+        },
+      },
+    };
+
+    for (const teammate of teammates) {
+      if (teammate.line_user_id) {
+        await lineClient.pushMessage(teammate.line_user_id, message).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error('[notifyTeam] Error:', err.message);
+  }
+}
+
 // ── Reminder to manager ───────────────────────────────────────────────────────
 export async function remindManager(managerLineUserId, requestType) {
   const typeLabel = requestType === 'leave' ? 'ใบลา' : 'OT';

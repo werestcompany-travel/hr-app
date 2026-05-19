@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { initLiff, apiCall } from '../api/client';
+import { useLang } from '../context/LangContext';
+import LangToggle from '../components/LangToggle';
 import LoadingScreen from '../components/LoadingScreen';
 import ErrorScreen from '../components/ErrorScreen';
 import SuccessScreen from '../components/SuccessScreen';
@@ -9,9 +11,10 @@ const LIFF_ID = import.meta.env.VITE_LIFF_ID_OT;
 const OT_LIMIT = 36;
 
 export default function OTForm() {
-  const [appState, setAppState] = useState('loading');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [usage, setUsage]       = useState({ used: 0, remaining: OT_LIMIT });
+  const { t } = useLang();
+  const [appState, setAppState]     = useState('loading');
+  const [errorMsg, setErrorMsg]     = useState('');
+  const [usage, setUsage]           = useState({ used: 0, remaining: OT_LIMIT });
   const [submitting, setSubmitting] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm({
@@ -20,6 +23,9 @@ export default function OTForm() {
 
   const hours = parseFloat(watch('hours') || 0);
   const wouldExceed = usage.used + hours > OT_LIMIT;
+  const projectedUsed = Math.min(OT_LIMIT, usage.used + (hours > 0 ? hours : 0));
+  const usedPct = Math.min(100, (usage.used / OT_LIMIT) * 100);
+  const projectedPct = Math.min(100, (projectedUsed / OT_LIMIT) * 100);
 
   useEffect(() => {
     initLiff(LIFF_ID)
@@ -38,16 +44,11 @@ export default function OTForm() {
     setSubmitting(true);
     try {
       if (wouldExceed) {
-        alert(`This would exceed the ${OT_LIMIT}hr monthly limit. You have ${usage.remaining.toFixed(1)} hours remaining.`);
+        alert(t.alertExceedsLimit(OT_LIMIT, usage.remaining.toFixed(1)));
         setSubmitting(false);
         return;
       }
-
-      await apiCall('/ot', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-
+      await apiCall('/ot', { method: 'POST', body: JSON.stringify(data) });
       setAppState('success');
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -56,106 +57,159 @@ export default function OTForm() {
     }
   };
 
-  if (appState === 'loading') return <LoadingScreen message="Connecting to HR System..." />;
+  if (appState === 'loading') return <LoadingScreen />;
   if (appState === 'error')   return <ErrorScreen message={errorMsg} />;
   if (appState === 'success') {
-    return (
-      <SuccessScreen
-        title="OT Request Submitted"
-        message="Your manager has been notified and will review your request shortly."
-      />
-    );
+    return <SuccessScreen title={t.otSubmittedTitle} message={t.otSubmittedMsg} />;
   }
 
-  const usedPercent = Math.min(100, (usage.used / OT_LIMIT) * 100);
-
   return (
-    <div className="min-h-screen px-4 py-6 space-y-5 max-w-lg mx-auto">
+    <div className="min-h-screen pb-8" style={{ backgroundColor: 'var(--bg)' }}>
+
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-[#52B788]">OT Request</h1>
-        <p className="text-sm text-[#B7E4C7]">Maximum 36 hours per month</p>
-      </div>
-
-      {/* Monthly usage bar */}
-      <div className="bg-[#2D6A4F] rounded-xl p-4 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-[#B7E4C7]">This month's OT</span>
-          <span className="font-bold text-white">{usage.used.toFixed(1)} / {OT_LIMIT} hrs</span>
-        </div>
-        <div className="w-full bg-[#1B4332] rounded-full h-2.5">
-          <div
-            className="h-2.5 rounded-full transition-all"
-            style={{
-              width: `${usedPercent}%`,
-              backgroundColor: usedPercent > 80 ? '#FF3B30' : '#52B788',
-            }}
-          />
-        </div>
-        <p className="text-xs text-[#B7E4C7]">Remaining: {usage.remaining.toFixed(1)} hrs</p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Date */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-[#B7E4C7]">OT Date *</label>
-          <input
-            type="date"
-            {...register('date', { required: 'Date is required' })}
-            className="w-full p-3 rounded-xl bg-[#2D6A4F] text-white border border-[rgba(82,183,136,0.3)] focus:border-[#52B788] focus:outline-none"
-          />
-          {errors.date && <p className="text-red-400 text-xs">{errors.date.message}</p>}
-        </div>
-
-        {/* Hours */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-[#B7E4C7]">Hours *</label>
-          <input
-            type="number"
-            step="0.5"
-            min="0.5"
-            max="12"
-            placeholder="e.g. 2.5"
-            {...register('hours', {
-              required: 'Hours is required',
-              min: { value: 0.5, message: 'Minimum 0.5 hours' },
-              max: { value: 12, message: 'Maximum 12 hours per day' },
-            })}
-            className="w-full p-3 rounded-xl bg-[#2D6A4F] text-white border border-[rgba(82,183,136,0.3)] focus:border-[#52B788] focus:outline-none"
-          />
-          {errors.hours && <p className="text-red-400 text-xs">{errors.hours.message}</p>}
-          {!errors.hours && hours > 0 && (
-            <p className={`text-xs ${wouldExceed ? 'text-red-400' : 'text-[#52B788]'}`}>
-              {wouldExceed
-                ? `⚠️ This would exceed the monthly limit by ${(usage.used + hours - OT_LIMIT).toFixed(1)} hrs`
-                : `✓ After request: ${(usage.used + hours).toFixed(1)} / ${OT_LIMIT} hrs used`}
+      <div className="px-5 pt-6 pb-5" style={{ backgroundColor: 'var(--navy)' }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold tracking-widest uppercase opacity-60 text-white mb-1">
+              {t.overtimeRequest}
             </p>
+            <h1 className="text-2xl font-bold text-white">{t.otHours}</h1>
+            <p className="text-sm opacity-70 text-white mt-1">{t.maxPerMonth(OT_LIMIT)}</p>
+          </div>
+          <LangToggle variant="dark" />
+        </div>
+      </div>
+
+      <div className="px-5 -mt-2 space-y-4 max-w-lg mx-auto">
+
+        {/* Usage card */}
+        <div className="bg-white rounded-2xl p-5 space-y-3 shadow-sm"
+          style={{ border: '1px solid var(--border)' }}>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{t.thisMonth}</p>
+              <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text)' }}>
+                {usage.used.toFixed(1)}
+                <span className="text-base font-medium ml-1" style={{ color: 'var(--text-muted)' }}>
+                  / {OT_LIMIT} {t.hrsUnit}
+                </span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{t.remaining}</p>
+              <p className="text-lg font-bold mt-0.5" style={{
+                color: usage.remaining <= 4 ? 'var(--red)' : 'var(--green)'
+              }}>
+                {usage.remaining.toFixed(1)} {t.hrsUnit}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${projectedPct}%`,
+                  backgroundColor: wouldExceed ? 'var(--red)' : usedPct > 80 ? 'var(--amber)' : 'var(--navy)',
+                }}
+              />
+            </div>
+            {hours > 0 && !wouldExceed && (
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {t.afterRequest((usage.used + hours).toFixed(1))}
+              </p>
+            )}
+          </div>
+
+          {wouldExceed && hours > 0 && (
+            <div className="rounded-xl p-3 flex items-start gap-2"
+              style={{ backgroundColor: 'var(--red-light)', border: '1px solid #EF444433' }}>
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" strokeWidth={2.5} style={{ color: 'var(--red)' }}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <p className="text-xs font-medium" style={{ color: 'var(--red)' }}>
+                {t.exceedsLimit((usage.used + hours - OT_LIMIT).toFixed(1))}
+              </p>
+            </div>
           )}
         </div>
 
-        {/* Reason */}
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-[#B7E4C7]">Reason *</label>
-          <textarea
-            {...register('reason', { required: 'Reason is required for OT requests' })}
-            placeholder="Why is OT needed?"
-            rows={3}
-            className="w-full p-3 rounded-xl bg-[#2D6A4F] text-white border border-[rgba(82,183,136,0.3)] focus:border-[#52B788] focus:outline-none resize-none placeholder-[#B7E4C7] placeholder-opacity-50"
-          />
-          {errors.reason && <p className="text-red-400 text-xs">{errors.reason.message}</p>}
-        </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={submitting || wouldExceed}
-          className="w-full py-4 bg-[#52B788] text-white font-bold rounded-xl text-base
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     hover:bg-[#40a070] active:bg-[#3a9060] transition-colors"
-        >
-          {submitting ? 'Submitting...' : 'Submit OT Request'}
-        </button>
-      </form>
+          {/* Date */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm"
+            style={{ border: errors.date ? '2px solid var(--red)' : '1px solid var(--border)' }}>
+            <div className="px-4 pt-4 pb-1">
+              <label className="text-xs font-semibold" style={{ color: 'var(--slate)' }}>{t.otDateLabel}</label>
+            </div>
+            <input
+              type="date"
+              {...register('date', { required: t.validDateRequired })}
+              className="w-full px-4 pb-4 text-base focus:outline-none"
+              style={{ color: 'var(--text)', backgroundColor: 'transparent' }}
+            />
+            {errors.date && (
+              <p className="px-4 pb-3 text-xs" style={{ color: 'var(--red)' }}>{errors.date.message}</p>
+            )}
+          </div>
+
+          {/* Hours */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm"
+            style={{ border: errors.hours || wouldExceed ? '2px solid var(--red)' : '1px solid var(--border)' }}>
+            <div className="px-4 pt-4 pb-1">
+              <label className="text-xs font-semibold" style={{ color: 'var(--slate)' }}>{t.hoursLabel}</label>
+            </div>
+            <input
+              type="number"
+              step="0.5"
+              min="0.5"
+              max="12"
+              placeholder={t.hoursPlaceholder}
+              {...register('hours', {
+                required: t.validHoursRequired,
+                min: { value: 0.5, message: t.validMinHours },
+                max: { value: 12, message: t.validMaxHours },
+              })}
+              className="w-full px-4 pb-4 text-base focus:outline-none"
+              style={{ color: 'var(--text)', backgroundColor: 'transparent' }}
+            />
+            {errors.hours && (
+              <p className="px-4 pb-3 text-xs" style={{ color: 'var(--red)' }}>{errors.hours.message}</p>
+            )}
+          </div>
+
+          {/* Reason */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm"
+            style={{ border: errors.reason ? '2px solid var(--red)' : '1px solid var(--border)' }}>
+            <div className="px-4 pt-4 pb-1">
+              <label className="text-xs font-semibold" style={{ color: 'var(--slate)' }}>{t.reasonOTLabel}</label>
+            </div>
+            <textarea
+              {...register('reason', { required: t.validReasonRequired })}
+              placeholder={t.reasonOTPlaceholder}
+              rows={3}
+              className="w-full px-4 pb-4 text-base focus:outline-none resize-none"
+              style={{ color: 'var(--text)', backgroundColor: 'transparent' }}
+            />
+            {errors.reason && (
+              <p className="px-4 pb-3 text-xs" style={{ color: 'var(--red)' }}>{errors.reason.message}</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || wouldExceed}
+            className="w-full py-4 rounded-2xl text-white font-bold text-base transition-opacity active:opacity-80 disabled:opacity-40"
+            style={{ backgroundColor: 'var(--navy)' }}
+          >
+            {submitting ? t.submitting : t.submitOT}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
