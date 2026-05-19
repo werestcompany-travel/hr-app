@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { supabase } from '../config/supabase.js';
+import { broadcastAnnouncement } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -30,9 +31,14 @@ router.post('/', requireAuth, requireRole('hr_admin'), async (req, res, next) =>
     const { data, error } = await supabase
       .from('announcements')
       .insert({ title, content, pinned: !!pinned, created_by: req.user.userId })
-      .select()
+      .select('*, users!created_by(name)')
       .single();
     if (error) throw error;
+
+    // Broadcast to all employees on LINE (fire-and-forget — don't block the response)
+    const authorName = data.users?.name || 'HR Admin';
+    broadcastAnnouncement(title, content, authorName, !!pinned).catch(() => {});
+
     res.status(201).json({ announcement: data });
   } catch (err) {
     next(err);

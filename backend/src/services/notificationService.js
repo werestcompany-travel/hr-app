@@ -456,6 +456,126 @@ export async function notifyTeam(requesterId, requestId) {
   }
 }
 
+// ── Broadcast announcement to all employees ───────────────────────────────────
+export async function broadcastAnnouncement(title, content, authorName, pinned = false) {
+  try {
+    // Fetch all users that have a LINE account
+    const { data: users } = await supabase
+      .from('users')
+      .select('line_user_id')
+      .not('line_user_id', 'is', null);
+
+    if (!users?.length) return;
+
+    const now = format(new Date(), 'dd/MM/yyyy HH:mm');
+
+    const message = {
+      type: 'flex',
+      altText: `📢 ประกาศ: ${title}`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: pinned ? '#1B4332' : '#364765',
+          paddingAll: '16px',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              justifyContent: 'center',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📢',
+                  size: 'xl',
+                },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: pinned ? 'ประกาศสำคัญ' : 'ประกาศ',
+                  color: pinned ? '#52B788' : '#A0B4CC',
+                  size: 'xs',
+                  weight: 'bold',
+                  letterSpacing: '2px',
+                },
+                {
+                  type: 'text',
+                  text: title,
+                  color: '#FFFFFF',
+                  size: 'md',
+                  weight: 'bold',
+                  wrap: true,
+                  margin: 'xs',
+                },
+              ],
+            },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '16px',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: content,
+              color: '#333333',
+              size: 'sm',
+              wrap: true,
+              lineSpacing: '6px',
+            },
+            { type: 'separator', margin: 'lg' },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: `โดย ${authorName}`,
+                  color: '#888888',
+                  size: 'xs',
+                  flex: 1,
+                },
+                {
+                  type: 'text',
+                  text: now,
+                  color: '#AAAAAA',
+                  size: 'xs',
+                  align: 'end',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    };
+
+    // Send in batches to respect LINE API rate limits
+    const BATCH = 5;
+    for (let i = 0; i < users.length; i += BATCH) {
+      const batch = users.slice(i, i + BATCH);
+      await Promise.allSettled(
+        batch.map(u => lineClient.pushMessage(u.line_user_id, message))
+      );
+    }
+
+    console.log(`[broadcastAnnouncement] Sent to ${users.length} users`);
+  } catch (err) {
+    console.error('[broadcastAnnouncement] Error:', err.message);
+  }
+}
+
 // ── Reminder to manager ───────────────────────────────────────────────────────
 export async function remindManager(managerLineUserId, requestType) {
   const typeLabel = requestType === 'leave' ? 'ใบลา' : 'OT';
