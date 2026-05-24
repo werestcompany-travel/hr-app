@@ -8,6 +8,7 @@ export const translations = {
     navLeaveReport: 'Leave Report',
     navRequestHistory: 'Request History',
     navAnnouncements: 'Announcements',
+    navAuditLog: 'Audit Log',
 
     // Common
     loading: 'Loading...',
@@ -161,6 +162,31 @@ export const translations = {
 
     // CSV headers
     csvHeaders: ['Employee', 'Department', 'Type', 'Start Date', 'End Date / Date', 'Days/Hours', 'Reason', 'Status', 'Submitted'],
+
+    // Audit log
+    auditLogTitle: 'Audit Log',
+    auditColTime: 'Time',
+    auditColActor: 'By',
+    auditColAction: 'Action',
+    auditColEntity: 'Target',
+    auditColDetails: 'Details',
+    noAuditLogs: 'No activity recorded yet.',
+    auditFilterAll: 'All Actions',
+    auditFilterEmployee: 'Employees',
+    auditFilterLeave: 'Leave',
+    auditFilterOT: 'OT',
+    auditFilterAnnouncement: 'Announcements',
+    auditFilterSession: 'Logins',
+    // Action labels
+    'employee.created':       'Added employee',
+    'employee.updated':       'Updated employee',
+    'leave.approved':         'Approved leave',
+    'leave.rejected':         'Rejected leave',
+    'ot.approved':            'Approved OT',
+    'ot.rejected':            'Rejected OT',
+    'announcement.created':   'Posted announcement',
+    'announcement.deleted':   'Deleted announcement',
+    'admin.login':            'Admin login',
   },
 
   th: {
@@ -172,6 +198,7 @@ export const translations = {
     navLeaveReport: 'รายงานการลา',
     navRequestHistory: 'ประวัติคำขอ',
     navAnnouncements: 'ประกาศ',
+    navAuditLog: 'บันทึกกิจกรรม',
 
     // Common
     loading: 'กำลังโหลด...',
@@ -325,5 +352,30 @@ export const translations = {
 
     // CSV headers
     csvHeaders: ['ชื่อพนักงาน', 'แผนก', 'ประเภท', 'วันที่เริ่ม', 'วันที่สิ้นสุด / วันที่', 'จำนวนวัน/ชั่วโมง', 'เหตุผล', 'สถานะ', 'วันที่ส่ง'],
+
+    // Audit log
+    auditLogTitle: 'บันทึกกิจกรรม',
+    auditColTime: 'เวลา',
+    auditColActor: 'โดย',
+    auditColAction: 'การดำเนินการ',
+    auditColEntity: 'เป้าหมาย',
+    auditColDetails: 'รายละเอียด',
+    noAuditLogs: 'ยังไม่มีกิจกรรม',
+    auditFilterAll: 'ทั้งหมด',
+    auditFilterEmployee: 'พนักงาน',
+    auditFilterLeave: 'ใบลา',
+    auditFilterOT: 'OT',
+    auditFilterAnnouncement: 'ประกาศ',
+    auditFilterSession: 'เข้าสู่ระบบ',
+    // Action labels (TH)
+    'employee.created':       'เพิ่มพนักงาน',
+    'employee.updated':       'แก้ไขพนักงาน',
+    'leave.approved':         'อนุมัติใบลา',
+    'leave.rejected':         'ปฏิเสธใบลา',
+    'ot.approved':            'อนุมัติ OT',
+    'ot.rejected':            'ปฏิเสธ OT',
+    'announcement.created':   'โพสต์ประกาศ',
+    'announcement.deleted':   'ลบประกาศ',
+    'admin.login':            'เข้าสู่ระบบ',
   },
 };

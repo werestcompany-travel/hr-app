@@ -4,6 +4,7 @@ import { supabase } from '../config/supabase.js';
 import bcrypt from 'bcryptjs';
 import { getSignedUrl } from '../services/storageService.js';
 import { startOfMonth, endOfMonth, format, differenceInCalendarDays } from 'date-fns';
+import { logAction } from '../services/auditService.js';
 
 const router = Router();
 const adminOnly = [requireAuth, requireRole('hr_admin')];
@@ -81,6 +82,16 @@ router.post('/employees', ...adminOnly, async (req, res, next) => {
     if (error) throw error;
 
     const { password_hash, ...safeData } = data;
+
+    logAction({
+      actorId: req.user.userId,
+      actorName: req.user.name || 'HR Admin',
+      action: 'employee.created',
+      entityType: 'employee',
+      entityId: safeData.id,
+      details: { name: safeData.name, role: safeData.role, department: safeData.department },
+    });
+
     res.status(201).json({ employee: safeData });
   } catch (err) {
     next(err);
@@ -117,7 +128,42 @@ router.put('/employees/:id', ...adminOnly, async (req, res, next) => {
     if (error) throw error;
 
     const { password_hash, ...safeData } = data;
+
+    // Build a human-readable summary of what changed
+    const changedFields = Object.keys(updates).filter(k => k !== 'password_hash');
+    logAction({
+      actorId: req.user.userId,
+      actorName: req.user.name || 'HR Admin',
+      action: 'employee.updated',
+      entityType: 'employee',
+      entityId: id,
+      details: { changed: changedFields, name: safeData.name },
+    });
+
     res.json({ employee: safeData });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Audit logs ───────────────────────────────────────────────────────────────
+router.get('/audit-logs', ...adminOnly, async (req, res, next) => {
+  try {
+    const { entity_type, action, limit = 100, offset = 0 } = req.query;
+
+    let query = supabase
+      .from('audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    if (entity_type) query = query.eq('entity_type', entity_type);
+    if (action)      query = query.eq('action', action);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({ logs: data || [] });
   } catch (err) {
     next(err);
   }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../config/supabase.js';
+import { logAction } from '../services/auditService.js';
 
 const router = Router();
 
@@ -89,6 +90,16 @@ router.post('/admin/login', async (req, res, next) => {
 
     // Don't return password hash to client
     const { password_hash, ...safeUser } = user;
+
+    logAction({
+      actorId: user.id,
+      actorName: user.name || user.email,
+      action: 'admin.login',
+      entityType: 'session',
+      entityId: user.id,
+      details: { email: user.email },
+    });
+
     res.json({ token, user: safeUser });
   } catch (err) {
     next(err);

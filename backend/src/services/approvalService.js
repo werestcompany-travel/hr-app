@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { notifyManager, notifyEmployee, notifyTeam } from './notificationService.js';
+import { logAction } from './auditService.js';
 import { differenceInCalendarDays } from 'date-fns';
 
 // ── Create approval step and notify manager ───────────────────────────────────
@@ -107,6 +108,17 @@ export async function processApproval(stepId, decision, rejectReason = null) {
 
   // Notify employee with request details
   await notifyEmployee(req.user_id, decision, rejectReason, step.approver_id, step.request_id, step.request_type);
+
+  // Audit log — fetch approver name
+  const { data: approver } = await supabase.from('users').select('name').eq('id', step.approver_id).single();
+  logAction({
+    actorId: step.approver_id,
+    actorName: approver?.name || 'Manager',
+    action: `${step.request_type}.${decision}`,   // e.g. 'leave.approved', 'ot.rejected'
+    entityType: step.request_type,
+    entityId: step.request_id,
+    details: decision === 'rejected' ? { reason: rejectReason } : null,
+  });
 
   // Deduct leave balance and notify team on approval
   if (decision === 'approved' && step.request_type === 'leave') {
