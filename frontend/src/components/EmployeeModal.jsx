@@ -10,28 +10,37 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
   const [error, setError]   = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm();
+
+  // Watch role to conditionally show LINE User ID field
+  const roleValue   = useWatch({ control, name: 'role',           defaultValue: employee?.role || 'employee' });
   const salaryValue = useWatch({ control, name: 'monthly_salary', defaultValue: 0 });
-  const salary = parseFloat(salaryValue) || 0;
+
+  const isManager  = roleValue === 'manager';
+  const salary     = parseFloat(salaryValue) || 0;
   const dailyRate  = salary > 0 ? (salary / 26).toFixed(2) : null;
   const hourlyRate = salary > 0 ? (salary / 26 / 8).toFixed(2) : null;
 
   useEffect(() => {
     if (employee) {
       reset({
-        name:           employee.name,
-        email:          employee.email || '',
-        role:           employee.role,
-        department:     employee.department || '',
-        manager_id:     employee.manager_id || '',
-        line_user_id:   employee.line_user_id || '',
+        name:                   employee.name,
+        email:                  employee.email || '',
+        role:                   employee.role,
+        department:             employee.department || '',
+        manager_id:             employee.manager_id || '',
+        line_user_id:           employee.line_user_id || '',
         leave_balance_sick:     employee.leave_balance_sick,
         leave_balance_vacation: employee.leave_balance_vacation,
-        monthly_salary: employee.monthly_salary || '',
+        monthly_salary:         employee.monthly_salary || '',
       });
     }
   }, [employee, reset]);
 
   const onSubmit = async (data) => {
+    // Clear LINE User ID if the role is not Manager
+    if (data.role !== 'manager') {
+      data.line_user_id = '';
+    }
     setSaving(true);
     setError('');
     try {
@@ -85,35 +94,6 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
             />
           </div>
 
-          {/* LINE User ID */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              {t.lineUserId}
-              <span className="ml-1.5 text-xs font-normal text-gray-400">{t.lineUserIdNote}</span>
-            </label>
-            <div className="relative">
-              <input
-                {...register('line_user_id')}
-                placeholder={t.lineUserIdPlaceholder}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788] pr-24 font-mono"
-              />
-              {/* Connected indicator */}
-              {(() => {
-                const currentId = employee?.line_user_id;
-                if (!currentId) return null;
-                return (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                    {t.lineConnected}
-                  </span>
-                );
-              })()}
-            </div>
-            <p className="text-xs text-gray-400">
-              Starts with <code className="bg-gray-100 px-1 rounded">U</code> followed by 32 hex characters. Found in LINE webhook events or LINE Developer Console.
-            </p>
-          </div>
-
           {/* Role + Department */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -124,7 +104,7 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               >
                 <option value="employee">{t.roleEmployee}</option>
                 <option value="manager">{t.roleManager}</option>
-                <option value="hr_admin">{t.roleHRAdmin}</option>
+                {/* hr_admin is intentionally excluded — manage admins separately */}
               </select>
             </div>
             <div className="space-y-1">
@@ -136,14 +116,39 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
             </div>
           </div>
 
+          {/* LINE User ID — shown only for Manager role */}
+          {isManager && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                {t.lineUserId}
+                <span className="ml-1.5 text-xs font-normal text-gray-400">{t.lineUserIdNote}</span>
+              </label>
+              <div className="relative">
+                <input
+                  {...register('line_user_id')}
+                  placeholder={t.lineUserIdPlaceholder}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788] pr-24 font-mono"
+                />
+                {employee?.line_user_id && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                    {t.lineConnected}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">
+                Starts with <code className="bg-gray-100 px-1 rounded">U</code> followed by 32 hex characters. Found in LINE webhook events or LINE Developer Console.
+              </p>
+            </div>
+          )}
+
           {/* Manager */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">{t.manager}</label>
 
             {/* Current manager badge */}
             {(() => {
-              const currentManagerId = employee?.manager_id;
-              const currentManager = managers.find(m => m.id === currentManagerId);
+              const currentManager = managers.find(m => m.id === employee?.manager_id);
               if (!currentManager) return null;
               return (
                 <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
@@ -164,7 +169,6 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
             >
               <option value="">{t.noneOption}</option>
-              {/* Group: Managers */}
               {managers.filter(m => m.role === 'manager').length > 0 && (
                 <optgroup label={t.roleManager}>
                   {managers.filter(m => m.role === 'manager').map(m => (
@@ -172,7 +176,6 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
                   ))}
                 </optgroup>
               )}
-              {/* Group: HR Admin */}
               {managers.filter(m => m.role === 'hr_admin').length > 0 && (
                 <optgroup label={t.roleHRAdmin}>
                   {managers.filter(m => m.role === 'hr_admin').map(m => (
@@ -215,7 +218,6 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               {...register('monthly_salary')}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
             />
-            {/* Computed rates */}
             {dailyRate && (
               <div className="mt-2 bg-gray-50 rounded-lg px-3 py-2 flex gap-4 text-xs text-gray-600">
                 <span>
@@ -230,20 +232,6 @@ export default function EmployeeModal({ employee, managers, onClose, onSaved }) 
               </div>
             )}
           </div>
-
-          {/* Password (new hr_admin only) */}
-          {!isEdit && (
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">
-                {t.password} <span className="text-gray-400 text-xs">{t.passwordNote}</span>
-              </label>
-              <input
-                type="password"
-                {...register('password')}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#52B788]"
-              />
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
