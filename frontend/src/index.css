@@ -112,5 +112,13 @@ body {
 .dark .bg-orange-50  { background-color: #2a1a0f !important; }
 .dark .bg-yellow-50  { background-color: #2a1f0f !important; }
 
+/* Opacity-modifier variants (e.g. bg-gray-50/60, bg-gray-50/80) */
+.dark .bg-gray-50\/60,
+.dark .bg-gray-50\/80,
+.dark .bg-gray-50\/90 { background-color: var(--hover-bg) !important; }
+.dark .hover\:bg-gray-50\/60:hover { background-color: var(--hover-bg) !important; }
+.dark .bg-white\/80,
+.dark .bg-white\/90 { background-color: rgba(30,41,59,0.85) !important; }
+
 /* Modal overlay */
 .dark .bg-black\/50 { background-color: rgba(0,0,0,0.7) !important; }

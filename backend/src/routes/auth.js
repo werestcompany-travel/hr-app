@@ -47,7 +47,7 @@ router.post('/line', async (req, res, next) => {
     if (error) throw error;
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role, lineUserId: user.line_user_id },
+      { userId: user.id, role: user.role, name: user.name, lineUserId: user.line_user_id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -83,7 +83,7 @@ router.post('/admin/login', async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, name: user.name },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
